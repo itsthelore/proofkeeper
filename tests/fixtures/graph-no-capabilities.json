@@ -1,0 +1,9 @@
+{
+  "schema_version": "1",
+  "source": "decisions-only",
+  "nodes": [
+    { "id": "RAC-DEC1", "type": "decision", "status": "Accepted", "title": "An ADR" },
+    { "id": "roadmap-1", "type": "roadmap", "status": "Planned", "title": "A roadmap" }
+  ],
+  "edges": []
+}

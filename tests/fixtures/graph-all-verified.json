@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "source": "verified-corpus",
+  "nodes": [
+    { "id": "REQ-A", "type": "requirement", "status": "Accepted", "title": "Capability A" },
+    { "id": "REQ-B", "type": "requirement", "status": "Accepted", "title": "Capability B" }
+  ],
+  "edges": [
+    { "source": "REQ-A", "target": "tests/a.spec.ts", "type": "verified_by", "directed": true, "resolved": false },
+    { "source": "REQ-B", "target": "tests/b.spec.ts", "type": "verified_by", "directed": true, "resolved": false }
+  ]
+}

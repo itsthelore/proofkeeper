@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "source": "demo-corpus",
+  "nodes": [
+    { "id": "REQ-LOGIN", "type": "requirement", "status": "Accepted", "title": "User can log in" },
+    { "id": "REQ-EXPORT", "type": "requirement", "status": "Accepted", "title": "User can export data" },
+    { "id": "REQ-SEARCH", "type": "requirement", "status": "Proposed", "title": "User can search artifacts" },
+    { "id": "RAC-DECISION1", "type": "decision", "status": "Accepted", "title": "ADR-001 Markdown First" },
+    { "id": "roadmap-v1", "type": "roadmap", "status": "Planned", "title": "v1 roadmap" }
+  ],
+  "edges": [
+    {
+      "source": "REQ-LOGIN",
+      "target": "tests/e2e/login.spec.ts",
+      "type": "verified_by",
+      "directed": true,
+      "resolved": false
+    },
+    {
+      "source": "REQ-LOGIN",
+      "target": "traces/login.zip",
+      "type": "verified_by",
+      "directed": true,
+      "resolved": false
+    },
+    {
+      "source": "REQ-EXPORT",
+      "target": "tests/e2e/export.spec.ts",
+      "type": "verified_by",
+      "directed": true,
+      "resolved": false
+    },
+    {
+      "source": "REQ-LOGIN",
+      "target": "RAC-DECISION1",
+      "type": "related_decisions",
+      "directed": false,
+      "resolved": true
+    }
+  ]
+}
