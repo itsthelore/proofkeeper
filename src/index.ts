@@ -26,6 +26,7 @@ export type {
 } from "./runner/types.js";
 export { PlaywrightRunner } from "./runner/playwright-runner.js";
 export type { PlaywrightRunnerOptions } from "./runner/playwright-runner.js";
+export { parseReport, reduceReport, ReportParseError } from "./runner/playwright-report.js";
 
 // Compiler (Initiative 2 — the moat; stubbed).
 export type { Compiler, Session, SessionStep, CandidateTest } from "./compiler/types.js";

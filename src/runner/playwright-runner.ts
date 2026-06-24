@@ -1,21 +1,30 @@
 /**
- * A local Playwright runner skeleton — Proofkeeper Initiative 4.
+ * The local Playwright runner — Proofkeeper Initiative 4.
  *
- * This is the open-source local runner. In v0.0.1 it establishes the shape and
- * exercises the fidelity gate against a hand-seeded example spec; it shells out
- * to the Playwright CLI (`npx playwright test`) so the runtime stays entirely
- * in this product, never in the Lore engine.
+ * The open-source local runner. It shells out to the Playwright CLI
+ * (`npx playwright test`) so the test runtime stays entirely in this product,
+ * never in the Lore engine, and parses Playwright's JSON reporter into typed
+ * {@link RunResult}s — real status, duration, and the actual trace path, not
+ * values inferred from an exit code.
  *
- * The full cross-target / cross-OS matrix and trace-artifact wiring are
- * intentionally minimal here and grow in later versions.
+ * The full cross-target / cross-OS matrix is still minimal here (targets run
+ * sequentially) and grows in later versions; the hosted VM-fabric runner is a
+ * separate implementation of the same {@link Runner} interface.
  */
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { parseReport } from "./playwright-report.js";
 import type { CompiledTest, RunOptions, RunResult, Runner } from "./types.js";
 
 const execFileAsync = promisify(execFile);
+
+/** Shape of the error execFile rejects with — carries captured stdio. */
+interface ExecError extends Error {
+  stdout?: string;
+  stderr?: string;
+}
 
 export interface PlaywrightRunnerOptions {
   /** Working directory the Playwright project lives in. Defaults to cwd. */
@@ -52,35 +61,37 @@ export class PlaywrightRunner implements Runner {
     const args = [
       ...this.command.baseArgs,
       test.specPath,
+      "--reporter=json",
       "--trace=on",
       ...(workers ? [`--workers=${workers}`] : []),
     ];
-    const startedAt = process.hrtime.bigint();
-    try {
-      await execFileAsync(this.command.bin, args, {
-        cwd: this.cwd,
-        env: { ...process.env, PROOFKEEPER_BASE_URL: baseURL },
-        maxBuffer: 64 * 1024 * 1024,
-      });
-      return {
-        testId: test.id,
-        target: targetName,
-        status: "passed",
-        durationMs: elapsedMs(startedAt),
-        tracePath: "test-results", // Playwright writes traces under this dir
-      };
-    } catch {
-      return {
-        testId: test.id,
-        target: targetName,
-        status: "failed",
-        durationMs: elapsedMs(startedAt),
-        tracePath: "test-results",
-      };
-    }
-  }
-}
+    const env = { ...process.env, PROOFKEEPER_BASE_URL: baseURL };
 
-function elapsedMs(startedAt: bigint): number {
-  return Number(process.hrtime.bigint() - startedAt) / 1e6;
+    // Playwright exits non-zero when tests fail, but still writes the JSON
+    // report to stdout. Capture stdout in both cases and let the report — not
+    // the exit code — decide the verdict.
+    let stdout: string;
+    try {
+      ({ stdout } = await execFileAsync(this.command.bin, args, {
+        cwd: this.cwd,
+        env,
+        maxBuffer: 256 * 1024 * 1024,
+      }));
+    } catch (err) {
+      const execErr = err as ExecError;
+      if (typeof execErr.stdout === "string" && execErr.stdout.trim().startsWith("{")) {
+        stdout = execErr.stdout;
+      } else {
+        // The CLI failed before producing a report (e.g. Playwright not
+        // installed, browsers missing). That is a runner error, not a test
+        // verdict — surface it.
+        throw new Error(
+          `playwright run failed for '${test.specPath}': ${execErr.message}` +
+            (execErr.stderr ? `\n${execErr.stderr}` : ""),
+        );
+      }
+    }
+
+    return parseReport(stdout, test.id, targetName);
+  }
 }
