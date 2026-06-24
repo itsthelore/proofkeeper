@@ -6,9 +6,12 @@
 > run.
 
 **Status: v0.0.1 prototype.** This is an early vertical slice. The coverage
-read-model (below) works end-to-end; the drive→compile→fidelity→run pipeline is
-present as honest interfaces and a skeleton, with the hard part — faithful
-session→test compilation — deferred (see [Scope](#v001-scope)).
+read-model (below) works end-to-end. The local Playwright runner and the
+fidelity gate are real: the runner drives an actual browser, parses Playwright's
+JSON report into typed results, and emits a replayable trace per run, and the
+fidelity gate accepts a test only after N green re-runs. The one piece still
+deferred is the hard part — faithful session→test compilation, the moat (see
+[Scope](#v001-scope)).
 
 > **Naming.** The product is **Proofkeeper**; the display brand is **Lore
 > Proofkeeper** where disambiguation helps. It is unrelated to Epic Games'
@@ -82,9 +85,19 @@ Exit codes: `0` every capability is verified, `1` one or more are unverified
 ```bash
 npm install
 npm run typecheck   # strict TypeScript
-npm test            # vitest unit tests
+npm test            # vitest unit tests (fast, no browser)
 npm run build       # emit dist/
+
+# Browser-driven end-to-end checks (real Chromium):
+npx playwright install chromium
+npx playwright test                              # run the seed spec
+PROOFKEEPER_E2E=1 npx vitest run \
+  tests/runner.integration.test.ts              # runner + fidelity gate, real browser
 ```
+
+The default `npm test` is fully hermetic — no browser required. The runner and
+fidelity-gate integration tests launch a real browser and are gated behind
+`PROOFKEEPER_E2E` so they run only when you opt in (and in the CI `e2e` job).
 
 Requires Node ≥ 20. Published as `@itsthelore/proofkeeper` (npm). A
 `lore-proofkeeper` PyPI counterpart may follow; the npm package is the
@@ -92,14 +105,17 @@ Playwright-native primary.
 
 ## v0.0.1 scope
 
-**In:** repo scaffold (packaging, Apache-2.0 + DCO, CI); the coverage
-read-model end-to-end; the runner / compiler / fidelity-gate / agent-loop
-*interfaces* and a Playwright runner skeleton exercised by a hand-seeded example
-test; a propose-only `## Verified By` write-back renderer.
+**In:** repo scaffold (packaging, Apache-2.0 + DCO, CI); the coverage read-model
+end-to-end; a **real** local Playwright runner that drives a browser, parses the
+JSON report into typed results, and emits a replayable trace, gated by the
+fidelity gate over N green re-runs against a hand-seeded browser-driven example
+test; the compiler / agent-loop *interfaces*; a propose-only `## Verified By`
+write-back renderer.
 
 **Deferred (named, not silently dropped):** real session→test compilation (the
-moat — interface only for now); cross-OS / VM-fabric runners; Proofkeeper Cloud
-(the hosted commercial tier); automated PR write-back; an `lore` MCP client.
+moat — interface and a throwing stub only, for now); the cross-target/cross-OS
+matrix and VM-fabric runner; Proofkeeper Cloud (the hosted commercial tier);
+automated PR write-back; an `lore` MCP client.
 
 ## License
 
