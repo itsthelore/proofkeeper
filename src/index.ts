@@ -81,3 +81,5 @@ export type {
   WriteBackResult,
   GitHubWriteBackProposerOptions,
 } from "./writeback/proposer.js";
+export { GitHubRestGateway } from "./writeback/gateways/github-rest.js";
+export type { GitHubRestGatewayOptions } from "./writeback/gateways/github-rest.js";
