@@ -22,7 +22,7 @@ e2e("PlaywrightRunner (real browser)", () => {
   it(
     "runs the seed spec green and emits a replayable trace",
     async () => {
-      const runner = new PlaywrightRunner({ cwd: projectRoot });
+      const runner = new PlaywrightRunner({ cwd: projectRoot, outputDir: "test-results/runner" });
       const [result] = await runner.run([SEED], { targets: [TARGET] });
 
       expect(result?.status).toBe("passed");
@@ -36,7 +36,7 @@ e2e("PlaywrightRunner (real browser)", () => {
   it(
     "passes the fidelity gate over 3 green re-runs",
     async () => {
-      const runner = new PlaywrightRunner({ cwd: projectRoot });
+      const runner = new PlaywrightRunner({ cwd: projectRoot, outputDir: "test-results/runner" });
       const verdict = await assessFidelity(runner, SEED, { n: 3, target: TARGET });
 
       expect(verdict.stable).toBe(true);

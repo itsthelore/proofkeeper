@@ -67,12 +67,12 @@ e2e("CodegenCompiler — one faithful session→test", () => {
       expect(session.actions).toHaveLength(5);
 
       // COMPILE — reduce the recorded trace to a committed .spec.ts.
-      const compiler = new CodegenCompiler({ outDir: "examples/generated" });
+      const compiler = new CodegenCompiler({ outDir: "examples/generated/compiler" });
       const candidate = await compiler.compile(session);
       expect(existsSync(`${projectRoot}/${candidate.specPath}`)).toBe(true);
 
       // FIDELITY — the emitted test must re-run green and stable 3 times.
-      const runner = new PlaywrightRunner({ cwd: projectRoot });
+      const runner = new PlaywrightRunner({ cwd: projectRoot, outputDir: "test-results/compiler" });
       const verdict = await assessFidelity(runner, candidate, {
         n: 3,
         target: { name: "local", baseURL },
