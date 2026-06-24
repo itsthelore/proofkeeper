@@ -5,16 +5,19 @@
 > reading the committed test and its trace in the pull request, not by a local
 > run.
 
-**Status: v0.0.1 prototype.** This is an early vertical slice, and the moat now
-has a working first case. The coverage read-model (below) works end-to-end. The
-local Playwright runner and the fidelity gate are real: the runner drives an
-actual browser, parses Playwright's JSON report into typed results, and emits a
-replayable trace per run; the gate accepts a test only after N green re-runs.
-And the **session→test compiler is real for a recorded drive**: a `Recorder`
-captures real browser actions (recording each only after it succeeds), and a
-deterministic emitter compiles that trace into a `.spec.ts` that passes the
-fidelity gate. Still deferred: the *autonomous* drive — a BYO-model agent
-deciding the actions on its own (see [Scope](#v001-scope)).
+**Status: v0.0.1 prototype.** The full drive→compile→fidelity→run pipeline now
+works end-to-end. The coverage read-model (below) runs against a real corpus
+graph. The local Playwright runner and the fidelity gate are real: the runner
+drives an actual browser, parses Playwright's JSON report into typed results,
+and emits a replayable trace per run; the gate accepts a test only after N green
+re-runs. The **session→test compiler is real**: a `Recorder` captures real
+browser actions (recording each only after it succeeds) and a deterministic
+emitter compiles that trace into a `.spec.ts`. And the **autonomous drive is
+real**: a bring-your-own-model agent loop observes the page, decides the next
+action, drives the product through the `Recorder`, and produces a session that
+compiles into a fidelity-gated test — proven end-to-end with a model deciding
+actions from page observations. Proofkeeper bundles no model; you supply a
+`ModelClient` (see [Scope](#v001-scope)).
 
 > **Naming.** The product is **Proofkeeper**; the display brand is **Lore
 > Proofkeeper** where disambiguation helps. It is unrelated to Epic Games'
@@ -83,6 +86,40 @@ proofkeeper coverage --corpus path/to/rac/
 Exit codes: `0` every capability is verified, `1` one or more are unverified
 (so it gates cleanly in CI), `2` usage or parse error.
 
+## Autonomous drive (bring your own model)
+
+The `AutonomousDriver` observes the page, asks your model for the next action,
+and drives the product through the `Recorder` — recording only what succeeds.
+Proofkeeper bundles no model: you implement `ModelClient` against your provider.
+
+```ts
+import { chromium } from "@playwright/test";
+import { AutonomousDriver, CodegenCompiler, PlaywrightRunner, assessFidelity } from "@itsthelore/proofkeeper";
+
+const model = {
+  // Your provider call: turn the transcript + tools into tool calls or `done`.
+  async complete(request) {
+    /* call your LLM with request.transcript and request.tools */
+    return { toolCalls: [/* { name, arguments } */] };
+  },
+};
+
+const page = await (await chromium.launch()).newPage();
+const { session, finished } = await new AutonomousDriver(page, model, {
+  capabilityId: "REQ-VERIFY",
+  title: "verify interaction flips status to verified",
+  startUrl: "http://localhost:3000/",
+  goal: "Click Verify and confirm the status changes to 'verified'.",
+}).drive();
+
+// Compile the recorded session and keep it only if it is stable.
+const candidate = await new CodegenCompiler({ outDir: "tests/generated" }).compile(session);
+const verdict = await assessFidelity(new PlaywrightRunner(), candidate, {
+  n: 5,
+  target: { name: "dev", baseURL: "http://localhost:3000/" },
+});
+```
+
 ## Install & develop
 
 ```bash
@@ -109,19 +146,22 @@ Playwright-native primary.
 ## v0.0.1 scope
 
 **In:** repo scaffold (packaging, Apache-2.0 + DCO, CI); the coverage read-model
-end-to-end; a **real** local Playwright runner that drives a browser, parses the
-JSON report into typed results, and emits a replayable trace, gated by the
-fidelity gate over N green re-runs; a **real session→test compiler** — a
-`Recorder` that captures faithful browser actions and a deterministic emitter
-that compiles them into a `.spec.ts`, proven end-to-end by recording a drive of
-a served product, compiling it, and passing the fidelity gate 3× green; a
-propose-only `## Verified By` write-back renderer.
+end-to-end; a **real** local Playwright runner (drives a browser, parses the JSON
+report into typed results, emits a replayable trace) gated by the fidelity gate
+over N green re-runs; a **real session→test compiler** — a `Recorder` that
+captures faithful browser actions and a deterministic emitter that compiles them
+into a `.spec.ts`; a **real autonomous drive** — a BYO-model agent loop
+(`AutonomousDriver`) that observes the page, decides the next action, and drives
+the product through the `Recorder`, proven end-to-end by a model deciding actions
+from observations through compile + a 3× green fidelity pass; a propose-only
+`## Verified By` write-back renderer.
 
-**Deferred (named, not silently dropped):** the *autonomous* drive — a BYO-model
-agent deciding the actions to record (the `Recorder` is driven by the caller
-today); generalization of the recorder beyond the core action set; the
-cross-target/cross-OS matrix and VM-fabric runner; Proofkeeper Cloud (the hosted
-commercial tier); automated PR write-back; an `lore` MCP client.
+**Deferred (named, not silently dropped):** a bundled real-LLM `ModelClient`
+adapter (the drive is bring-your-own-model — you implement `complete()` against
+your provider; no model SDK is a dependency); a terminal tool surface (the drive
+is browser-only today); generalization of the recorder/tool set beyond the core
+actions; the cross-target/cross-OS matrix and VM-fabric runner; Proofkeeper Cloud
+(the hosted commercial tier); automated PR write-back; an `lore` MCP client.
 
 ## License
 
