@@ -17,7 +17,13 @@ real**: a bring-your-own-model agent loop observes the page, decides the next
 action, drives the product through the `Recorder`, and produces a session that
 compiles into a fidelity-gated test — proven end-to-end with a model deciding
 actions from page observations. Proofkeeper bundles no model; you supply a
-`ModelClient` (see [Scope](#v001-scope)).
+`ModelClient`. And the **`## Verified By` write-back is real**: it merges the
+verification links into a requirement artifact and proposes them as a
+human-reviewed pull request (never a direct commit to the base branch) — the
+merged artifact validates clean against the real engine (`rac validate` +
+`rac relationships --validate`), and the resulting `verified_by` edge flips the
+capability from unverified to verified in the coverage report (see
+[Scope](#v001-scope)).
 
 > **Naming.** The product is **Proofkeeper**; the display brand is **Lore
 > Proofkeeper** where disambiguation helps. It is unrelated to Epic Games'
@@ -131,6 +137,34 @@ const verdict = await assessFidelity(new PlaywrightRunner(), candidate, {
 });
 ```
 
+## Write-back (propose `## Verified By`)
+
+Once a test is stable, Proofkeeper proposes linking it to the capability it
+verifies — by opening a **human-reviewed pull request** against the target's
+Lore corpus. It never commits to the base branch (ADR-065): it branches, commits
+the merged artifact to the branch, and opens a PR base ← head. The merge is pure
+and idempotent; re-proposing an already-present link opens no PR.
+
+Repository operations go through an injected `RepoGateway`, so there is no hard
+GitHub dependency — wire it to Octokit, the `gh` CLI, or a GitHub MCP client:
+
+```ts
+import { GitHubWriteBackProposer, linksFromResults } from "@itsthelore/proofkeeper";
+
+const proposer = new GitHubWriteBackProposer(gateway /* your RepoGateway */, { baseBranch: "main" });
+
+const result = await proposer.propose({
+  capabilityId: "REQ-VERIFY",
+  targetPath: "rac/requirements/verify.md",
+  links: linksFromResults(candidate, verdict.stable ? runResults : []),
+});
+// result: { status: "proposed", url, number, headBranch } | { status: "no-change", reason }
+```
+
+The merged artifact validates against the real engine (`rac validate` and
+`rac relationships --validate` stay clean), and the emitted `verified_by` edge
+turns the capability from unverified to verified in `proofkeeper coverage`.
+
 ## Install & develop
 
 ```bash
@@ -164,19 +198,21 @@ captures faithful browser actions and a deterministic emitter that compiles them
 into a `.spec.ts`; a **real autonomous drive** — a BYO-model agent loop
 (`AutonomousDriver`) that observes the page, decides the next action, and drives
 the product through the `Recorder`, proven end-to-end by a model deciding actions
-from observations through compile + a 3× green fidelity pass; a propose-only
-`## Verified By` write-back renderer.
+from observations through compile + a 3× green fidelity pass; a **real
+`## Verified By` write-back** — an idempotent artifact merge (validated clean
+against the real engine) proposed as a human-reviewed pull request through an
+injected `RepoGateway`, never a direct commit to the base branch.
 
 It ships an **optional** reference `ModelClient` adapter for the Anthropic Claude
 API (`ClaudeModelClient`), behind the bring-your-own-model boundary — the model
 SDK is an optional peer dependency, never a hard one.
 
-**Deferred (named, not silently dropped):** reference adapters for other
-providers (the `ModelClient` interface is the extension point); a terminal tool
+**Deferred (named, not silently dropped):** a bundled `RepoGateway` (the
+write-back is gateway-agnostic — wire Octokit/`gh`/GitHub MCP, like the model
+adapter); reference `ModelClient` adapters for other providers; a terminal tool
 surface (the drive is browser-only today); generalization of the recorder/tool
 set beyond the core actions; the cross-target/cross-OS matrix and VM-fabric
-runner; Proofkeeper Cloud (the hosted commercial tier); automated PR write-back;
-an `lore` MCP client.
+runner; Proofkeeper Cloud (the hosted commercial tier); an `lore` MCP client.
 
 ## License
 
