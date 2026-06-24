@@ -45,6 +45,11 @@ export type { FidelityOptions, FidelityVerdict } from "./fidelity/gate.js";
 export { runAgentLoop } from "./agent/loop.js";
 export type { AgentLoopDeps, AgentLoopOptions, AgentLoopResult } from "./agent/loop.js";
 export type { ModelClient, ModelRequest, ModelResponse, ToolCall } from "./agent/model.js";
+export { AutonomousDriver, runDrive } from "./agent/drive.js";
+export type { DriveOptions, DriveResult } from "./agent/drive.js";
+export { DRIVE_TOOLS, LOCATOR_GUIDANCE, parseLocator, ToolArgumentError } from "./agent/tools.js";
+export { observePage, renderObservation } from "./agent/observe.js";
+export type { PageObservation } from "./agent/observe.js";
 
 // Write-back (Initiative 5 — propose-only).
 export {

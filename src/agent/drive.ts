@@ -1,0 +1,176 @@
+/**
+ * The autonomous drive — Proofkeeper Initiative 2's drive phase.
+ *
+ * A bring-your-own-model agent loop: it navigates to the start URL, observes
+ * the live page, asks the {@link ModelClient} what to do next, dispatches the
+ * model's tool calls through the {@link Recorder}, observes the result, and
+ * repeats until the model finishes (or a step budget is hit). The Recorder
+ * records each action only after it succeeds, so the produced
+ * {@link RecordedSession} is — by construction — a faithful sequence that held,
+ * ready for the deterministic compiler and the fidelity gate.
+ *
+ * Proofkeeper bundles no model (ADR-035, ADR-002): the caller supplies the
+ * ModelClient. This loop is the autonomous runtime; the model is the brain.
+ */
+
+import type { Page } from "@playwright/test";
+
+import type { RecordedSession } from "../compiler/actions.js";
+import { Recorder } from "../compiler/recorder.js";
+import { observePage, renderObservation } from "./observe.js";
+import type { ModelClient, ModelRequest, ToolCall } from "./model.js";
+import { DRIVE_TOOLS, LOCATOR_GUIDANCE, parseLocator } from "./tools.js";
+
+const DEFAULT_MAX_STEPS = 12;
+
+export interface DriveOptions {
+  /** Capability under verification; threads into the recorded session. */
+  capabilityId?: string;
+  /** Human title for the emitted test. */
+  title: string;
+  /** Product entry point; the driver navigates here first. */
+  startUrl: string;
+  /** What the model should accomplish and assert on the product. */
+  goal: string;
+  /** Maximum model turns before the drive gives up. Defaults to 12. */
+  maxSteps?: number;
+}
+
+export interface DriveResult {
+  /** The recorded session, ready to compile. */
+  session: RecordedSession;
+  /** True if the model signalled completion (vs hitting the step budget). */
+  finished: boolean;
+  /** Number of model turns taken. */
+  steps: number;
+}
+
+/** Outcome of dispatching one tool call against the recorder. */
+interface Dispatch {
+  ok: boolean;
+  error?: string;
+  finished?: boolean;
+}
+
+function systemPrompt(goal: string): string {
+  return [
+    "You are Proofkeeper's autonomous QA agent. You drive a web product like a",
+    "developer to verify a capability, using only the provided tools. Work in",
+    "small steps: observe the page, take an action, observe again. Assert every",
+    "observable outcome with expect_text / expect_visible — those become the",
+    "committed test. When the capability is driven and asserted, call finish.",
+    "",
+    `Goal: ${goal}`,
+    "",
+    LOCATOR_GUIDANCE,
+  ].join("\n");
+}
+
+/** Dispatch one tool call to the recorder. Records only on success. */
+async function dispatch(recorder: Recorder, call: ToolCall): Promise<Dispatch> {
+  try {
+    switch (call.name) {
+      case "navigate":
+        await recorder.goto(String(call.arguments["url"]));
+        return { ok: true };
+      case "click":
+        await recorder.click(parseLocator(call.arguments));
+        return { ok: true };
+      case "fill":
+        await recorder.fill(parseLocator(call.arguments), String(call.arguments["value"]));
+        return { ok: true };
+      case "check":
+        await recorder.check(parseLocator(call.arguments));
+        return { ok: true };
+      case "press":
+        await recorder.press(parseLocator(call.arguments), String(call.arguments["key"]));
+        return { ok: true };
+      case "expect_text":
+        await recorder.expectText(parseLocator(call.arguments), String(call.arguments["text"]));
+        return { ok: true };
+      case "expect_visible":
+        await recorder.expectVisible(parseLocator(call.arguments));
+        return { ok: true };
+      case "finish":
+        return { ok: true, finished: true };
+      default:
+        return { ok: false, error: `unknown tool '${call.name}'` };
+    }
+  } catch (err) {
+    // The action failed against the real page, so the recorder did NOT record
+    // it. Report the failure back to the model so it can adapt.
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export class AutonomousDriver {
+  constructor(
+    private readonly page: Page,
+    private readonly model: ModelClient,
+    private readonly options: DriveOptions,
+  ) {}
+
+  async drive(): Promise<DriveResult> {
+    const recorder = new Recorder(this.page, {
+      capabilityId: this.options.capabilityId,
+      title: this.options.title,
+      startUrl: this.options.startUrl,
+    });
+
+    // Seed the session at the known entry point, then let the model take over.
+    await recorder.goto(this.options.startUrl);
+
+    const transcript: ModelRequest["transcript"] = [
+      { role: "system", content: systemPrompt(this.options.goal) },
+      {
+        role: "user",
+        content: `You are on the start page.\n\n${renderObservation(await observePage(this.page))}`,
+      },
+    ];
+
+    const maxSteps = this.options.maxSteps ?? DEFAULT_MAX_STEPS;
+    let finished = false;
+    let steps = 0;
+
+    while (steps < maxSteps) {
+      steps++;
+      const response = await this.model.complete({ transcript, tools: [...DRIVE_TOOLS] });
+      const calls = response.toolCalls ?? [];
+
+      if (calls.length === 0) {
+        // The model stopped acting; treat a `done` message as completion.
+        finished = response.done !== undefined;
+        break;
+      }
+
+      transcript.push({ role: "assistant", content: JSON.stringify(calls) });
+
+      const outcomes: string[] = [];
+      let stop = false;
+      for (const call of calls) {
+        const result = await dispatch(recorder, call);
+        if (result.finished) {
+          finished = true;
+          stop = true;
+          break;
+        }
+        outcomes.push(result.ok ? `ok: ${call.name}` : `ERROR ${call.name}: ${result.error}`);
+      }
+      if (stop) break;
+
+      const observation = renderObservation(await observePage(this.page));
+      transcript.push({ role: "user", content: `Results:\n${outcomes.join("\n")}\n\n${observation}` });
+    }
+
+    return { session: recorder.recording(), finished, steps };
+  }
+}
+
+/** Convenience wrapper: construct a driver and run it. */
+export function runDrive(
+  page: Page,
+  model: ModelClient,
+  options: DriveOptions,
+): Promise<DriveResult> {
+  return new AutonomousDriver(page, model, options).drive();
+}
