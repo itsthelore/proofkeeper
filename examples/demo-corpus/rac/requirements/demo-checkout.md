@@ -33,3 +33,7 @@ regression in any step is caught before release.
 ## Related Requirements
 
 - REQ-DEMO-CART
+
+## Verified By
+
+- Checkout flow verified — `examples/seed.spec.ts` (trace: `test-results/checkout/trace.zip`)
