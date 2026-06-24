@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Playwright runtime / Proofkeeper-owned content (traces, reports)
+test-results/
+playwright-report/
+blob-report/
+.proofkeeper/
+traces/

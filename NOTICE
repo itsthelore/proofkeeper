@@ -1,0 +1,10 @@
+Lore Proofkeeper
+Copyright 2026 Tom Ballard and the Lore Proofkeeper contributors
+
+This product is part of the Lore family (https://github.com/itsthelore).
+It is a contract consumer of Lore (RAC): it reads the published
+`rac export --graph` contract and proposes `## Verified By` write-back links
+through human-reviewed pull requests. It does not depend on or embed the Lore
+engine's internals.
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file.

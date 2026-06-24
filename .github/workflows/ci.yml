@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    name: typecheck · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  dco:
+    name: DCO sign-off
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify every commit has a Signed-off-by trailer
+        run: |
+          range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          missing=0
+          while read -r sha; do
+            [ -z "$sha" ] && continue
+            if ! git show -s --format=%B "$sha" | grep -qiE '^Signed-off-by: .+ <.+@.+>'; then
+              echo "::error::commit $sha is missing a DCO Signed-off-by trailer"
+              missing=1
+            fi
+          done < <(git rev-list "$range")
+          if [ "$missing" -ne 0 ]; then
+            echo "All commits must be signed off (git commit -s). See CONTRIBUTING.md."
+            exit 1
+          fi
+          echo "All commits carry a DCO sign-off."
