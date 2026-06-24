@@ -29,16 +29,24 @@ interface ExecError extends Error {
 export interface PlaywrightRunnerOptions {
   /** Working directory the Playwright project lives in. Defaults to cwd. */
   cwd?: string;
+  /**
+   * Output directory for test results and traces. Isolating this per runner
+   * keeps concurrent runs (across targets, or parallel suites) from clobbering
+   * each other's `test-results/`. Defaults to Playwright's config value.
+   */
+  outputDir?: string;
   /** Override the Playwright invocation (advanced/testing). */
   command?: { bin: string; baseArgs: string[] };
 }
 
 export class PlaywrightRunner implements Runner {
   private readonly cwd: string;
+  private readonly outputDir: string | undefined;
   private readonly command: { bin: string; baseArgs: string[] };
 
   constructor(options: PlaywrightRunnerOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
+    this.outputDir = options.outputDir;
     this.command = options.command ?? { bin: "npx", baseArgs: ["playwright", "test"] };
   }
 
@@ -63,6 +71,7 @@ export class PlaywrightRunner implements Runner {
       test.specPath,
       "--reporter=json",
       "--trace=on",
+      ...(this.outputDir ? [`--output=${this.outputDir}`] : []),
       ...(workers ? [`--workers=${workers}`] : []),
     ];
     const env = { ...process.env, PROOFKEEPER_BASE_URL: baseURL };
