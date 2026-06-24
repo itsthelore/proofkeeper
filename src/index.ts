@@ -48,8 +48,19 @@ export type { ModelClient, ModelRequest, ModelResponse, ToolCall } from "./agent
 export { AutonomousDriver, runDrive } from "./agent/drive.js";
 export type { DriveOptions, DriveResult } from "./agent/drive.js";
 export { DRIVE_TOOLS, LOCATOR_GUIDANCE, parseLocator, ToolArgumentError } from "./agent/tools.js";
+export type { DriveTool } from "./agent/tools.js";
 export { observePage, renderObservation } from "./agent/observe.js";
 export type { PageObservation } from "./agent/observe.js";
+
+// Reference BYO-model adapter (optional — Anthropic Claude API).
+export {
+  ClaudeModelClient,
+  DEFAULT_CLAUDE_MODEL,
+  toAnthropicMessages,
+  toAnthropicTools,
+  fromAnthropicResponse,
+} from "./agent/adapters/claude.js";
+export type { ClaudeModelClientOptions, AnthropicLike } from "./agent/adapters/claude.js";
 
 // Write-back (Initiative 5 — propose-only).
 export {
