@@ -64,6 +64,7 @@ class FakeGateway implements RepoGateway {
   branches: string[] = [];
   commits: { branch: string; path: string }[] = [];
   prs: { base: string; head: string }[] = [];
+  comments: { number: number; body: string }[] = [];
   constructor(private readonly fileContent: string) {}
 
   getFileContent(path: string, ref: string): Promise<string> {
@@ -84,6 +85,11 @@ class FakeGateway implements RepoGateway {
     this.calls.push(`pr ${input.head}->${input.base}`);
     this.prs.push({ base: input.base, head: input.head });
     return Promise.resolve({ url: "https://github.com/itsthelore/x/pull/7", number: 7 });
+  }
+  commentOnPullRequest(input: { number: number; body: string }): Promise<{ url: string }> {
+    this.calls.push(`comment #${input.number}`);
+    this.comments.push({ number: input.number, body: input.body });
+    return Promise.resolve({ url: `https://github.com/itsthelore/x/pull/${input.number}#comment-1` });
   }
 }
 
@@ -114,6 +120,24 @@ describe("GitHubWriteBackProposer", () => {
       "commit rac/requirements/login.md@proofkeeper/verified-by/req-login",
       "pr proofkeeper/verified-by/req-login->main",
     ]);
+  });
+
+  it("posts a fidelity confirmation comment only when a fidelity result is given", async () => {
+    const withFidelity = new FakeGateway(ARTIFACT);
+    const r1 = await new GitHubWriteBackProposer(withFidelity).propose({
+      ...input,
+      fidelity: { attempts: 3, passed: 3, stable: true },
+    });
+    expect(r1.status).toBe("proposed");
+    if (r1.status !== "proposed") throw new Error("expected proposed");
+    expect(r1.commentUrl).toContain("#comment-1");
+    expect(withFidelity.comments).toHaveLength(1);
+    expect(withFidelity.comments[0]!.body).toContain("3/3 re-runs green");
+
+    const noFidelity = new FakeGateway(ARTIFACT);
+    const r2 = await new GitHubWriteBackProposer(noFidelity).propose(input);
+    expect(r2.status === "proposed" && r2.commentUrl).toBeUndefined();
+    expect(noFidelity.comments).toEqual([]);
   });
 
   it("opens no PR and writes nothing when the link is already present", async () => {

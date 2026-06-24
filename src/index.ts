@@ -73,6 +73,8 @@ export type { VerificationLink, VerifiedByProposal } from "./writeback/verified-
 export { mergeVerifiedBy } from "./writeback/merge.js";
 export { buildProposal, linksFromResults } from "./writeback/proposal.js";
 export type { BuildProposalInput, WriteBackProposal } from "./writeback/proposal.js";
+export { renderWriteBackComment, renderCoverageComment, commentCoverageStatus } from "./writeback/comment.js";
+export type { FidelitySummary, CoverageCommentOptions } from "./writeback/comment.js";
 export { GitHubWriteBackProposer } from "./writeback/proposer.js";
 export type {
   RepoGateway,

@@ -74,6 +74,19 @@ describe("GitHubRestGateway", () => {
     expect(prPost?.body).toMatchObject({ base: "main", head: "proofkeeper/verified-by/req-login" });
   });
 
+  it("posts a PR comment via the issues comments endpoint", async () => {
+    const { impl, calls } = fakeFetch({
+      "POST /repos/o/r/issues/12/comments": () => ({
+        status: 201,
+        json: { html_url: "https://github.com/o/r/pull/12#issuecomment-1" },
+      }),
+    });
+    const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });
+    const result = await gateway.commentOnPullRequest({ number: 12, body: "hello" });
+    expect(result.url).toContain("#issuecomment-1");
+    expect(calls[0]?.body).toMatchObject({ body: "hello" });
+  });
+
   it("raises a clear error on a failed request", async () => {
     const { impl } = fakeFetch({ "GET *": () => ({ status: 403, json: { message: "forbidden" } }) });
     const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });

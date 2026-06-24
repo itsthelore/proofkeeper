@@ -1,0 +1,75 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  renderWriteBackComment,
+  renderCoverageComment,
+  commentCoverageStatus,
+} from "../src/writeback/comment.js";
+import type { CoverageReport } from "../src/coverage/model.js";
+import type { RepoGateway } from "../src/writeback/proposer.js";
+
+describe("renderWriteBackComment", () => {
+  it("lists the linked evidence and the fidelity result", () => {
+    const body = renderWriteBackComment({
+      capabilityId: "REQ-LOGIN",
+      links: [{ test: "tests/login.spec.ts", trace: "traces/login.zip" }],
+      fidelity: { attempts: 5, passed: 5, stable: true },
+    });
+    expect(body).toContain("**REQ-LOGIN**");
+    expect(body).toContain("- `tests/login.spec.ts` (trace: `traces/login.zip`)");
+    expect(body).toContain("5/5 re-runs green — stable");
+    expect(body).toContain("does not merge or approve");
+  });
+
+  it("omits the fidelity line when no result is given", () => {
+    const body = renderWriteBackComment({ capabilityId: "REQ-X", links: [{ test: "t.spec.ts" }] });
+    expect(body).not.toContain("Fidelity gate");
+  });
+
+  it("marks an unstable result as quarantined", () => {
+    const body = renderWriteBackComment({
+      capabilityId: "REQ-X",
+      links: [{ test: "t.spec.ts" }],
+      fidelity: { attempts: 3, passed: 2, stable: false },
+    });
+    expect(body).toContain("2/3 re-runs green — unstable, quarantined");
+  });
+});
+
+const REPORT: CoverageReport = {
+  source: "demo",
+  total: 2,
+  verified: [{ id: "REQ-A", title: "Cap A", status: "Accepted", verifiedBy: ["tests/a.spec.ts"] }],
+  unverified: [{ id: "REQ-B", title: "Cap B", status: "Proposed", verifiedBy: [] }],
+};
+
+describe("renderCoverageComment", () => {
+  it("summarizes verified and unverified capabilities", () => {
+    const body = renderCoverageComment(REPORT);
+    expect(body).toContain("## Proofkeeper verification coverage for `demo`");
+    expect(body).toContain("1/2 capabilities have a verifying test; 1 unverified.");
+    expect(body).toContain("**REQ-A** — Cap A: `tests/a.spec.ts`");
+    expect(body).toContain("- REQ-B — Cap B");
+  });
+
+  it("honors a title override", () => {
+    expect(renderCoverageComment(REPORT, { title: "Verification status" })).toContain(
+      "## Verification status for `demo`",
+    );
+  });
+});
+
+describe("commentCoverageStatus", () => {
+  it("posts the rendered coverage comment to the PR via the gateway", async () => {
+    const commentOnPullRequest = vi.fn().mockResolvedValue({ url: "https://x/pull/9#c" });
+    const gateway = { commentOnPullRequest } as unknown as RepoGateway;
+
+    const result = await commentCoverageStatus(gateway, { prNumber: 9, report: REPORT });
+
+    expect(result.url).toContain("#c");
+    expect(commentOnPullRequest).toHaveBeenCalledOnce();
+    const arg = commentOnPullRequest.mock.calls[0][0];
+    expect(arg.number).toBe(9);
+    expect(arg.body).toContain("1/2 capabilities have a verifying test");
+  });
+});

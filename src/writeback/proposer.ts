@@ -14,6 +14,7 @@
  */
 
 import { buildProposal } from "./proposal.js";
+import { renderWriteBackComment, type FidelitySummary } from "./comment.js";
 import type { VerificationLink } from "./verified-by.js";
 
 /** The repository operations the proposer needs. Implement against any backend. */
@@ -29,6 +30,8 @@ export interface RepoGateway {
     url: string;
     number: number;
   }>;
+  /** Post an informational comment on a pull request. Never approves or merges. */
+  commentOnPullRequest(input: { number: number; body: string }): Promise<{ url: string }>;
 }
 
 export interface WriteBackInput {
@@ -38,11 +41,13 @@ export interface WriteBackInput {
   /** Overrides the proposer's default base branch. */
   baseBranch?: string;
   branchPrefix?: string;
+  /** When provided, a confirmation comment with the fidelity result is posted on the PR. */
+  fidelity?: FidelitySummary;
 }
 
 export type WriteBackResult =
   | { status: "no-change"; reason: string }
-  | { status: "proposed"; url: string; number: number; headBranch: string };
+  | { status: "proposed"; url: string; number: number; headBranch: string; commentUrl?: string };
 
 export interface WriteBackProposer {
   propose(input: WriteBackInput): Promise<WriteBackResult>;
@@ -91,6 +96,27 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
       body: proposal.body,
     });
 
-    return { status: "proposed", url: pr.url, number: pr.number, headBranch: proposal.headBranch };
+    const result: WriteBackResult = {
+      status: "proposed",
+      url: pr.url,
+      number: pr.number,
+      headBranch: proposal.headBranch,
+    };
+
+    // Optional confirmation comment carrying the fidelity evidence the PR body
+    // does not. Informational only.
+    if (input.fidelity) {
+      const comment = await this.gateway.commentOnPullRequest({
+        number: pr.number,
+        body: renderWriteBackComment({
+          capabilityId: input.capabilityId,
+          links: input.links,
+          fidelity: input.fidelity,
+        }),
+      });
+      result.commentUrl = comment.url;
+    }
+
+    return result;
   }
 }

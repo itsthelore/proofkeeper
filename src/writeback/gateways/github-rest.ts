@@ -118,4 +118,12 @@ export class GitHubRestGateway implements RepoGateway {
     })) as { html_url: string; number: number };
     return { url: pr.html_url, number: pr.number };
   }
+
+  async commentOnPullRequest(input: { number: number; body: string }): Promise<{ url: string }> {
+    // PR comments are issue comments in the GitHub REST API.
+    const comment = (await this.request("POST", this.repoPath(`/issues/${input.number}/comments`), {
+      body: input.body,
+    })) as { html_url: string };
+    return { url: comment.html_url };
+  }
 }
