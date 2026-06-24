@@ -5,13 +5,16 @@
 > reading the committed test and its trace in the pull request, not by a local
 > run.
 
-**Status: v0.0.1 prototype.** This is an early vertical slice. The coverage
-read-model (below) works end-to-end. The local Playwright runner and the
-fidelity gate are real: the runner drives an actual browser, parses Playwright's
-JSON report into typed results, and emits a replayable trace per run, and the
-fidelity gate accepts a test only after N green re-runs. The one piece still
-deferred is the hard part — faithful session→test compilation, the moat (see
-[Scope](#v001-scope)).
+**Status: v0.0.1 prototype.** This is an early vertical slice, and the moat now
+has a working first case. The coverage read-model (below) works end-to-end. The
+local Playwright runner and the fidelity gate are real: the runner drives an
+actual browser, parses Playwright's JSON report into typed results, and emits a
+replayable trace per run; the gate accepts a test only after N green re-runs.
+And the **session→test compiler is real for a recorded drive**: a `Recorder`
+captures real browser actions (recording each only after it succeeds), and a
+deterministic emitter compiles that trace into a `.spec.ts` that passes the
+fidelity gate. Still deferred: the *autonomous* drive — a BYO-model agent
+deciding the actions on its own (see [Scope](#v001-scope)).
 
 > **Naming.** The product is **Proofkeeper**; the display brand is **Lore
 > Proofkeeper** where disambiguation helps. It is unrelated to Epic Games'
@@ -108,14 +111,17 @@ Playwright-native primary.
 **In:** repo scaffold (packaging, Apache-2.0 + DCO, CI); the coverage read-model
 end-to-end; a **real** local Playwright runner that drives a browser, parses the
 JSON report into typed results, and emits a replayable trace, gated by the
-fidelity gate over N green re-runs against a hand-seeded browser-driven example
-test; the compiler / agent-loop *interfaces*; a propose-only `## Verified By`
-write-back renderer.
+fidelity gate over N green re-runs; a **real session→test compiler** — a
+`Recorder` that captures faithful browser actions and a deterministic emitter
+that compiles them into a `.spec.ts`, proven end-to-end by recording a drive of
+a served product, compiling it, and passing the fidelity gate 3× green; a
+propose-only `## Verified By` write-back renderer.
 
-**Deferred (named, not silently dropped):** real session→test compilation (the
-moat — interface and a throwing stub only, for now); the cross-target/cross-OS
-matrix and VM-fabric runner; Proofkeeper Cloud (the hosted commercial tier);
-automated PR write-back; an `lore` MCP client.
+**Deferred (named, not silently dropped):** the *autonomous* drive — a BYO-model
+agent deciding the actions to record (the `Recorder` is driven by the caller
+today); generalization of the recorder beyond the core action set; the
+cross-target/cross-OS matrix and VM-fabric runner; Proofkeeper Cloud (the hosted
+commercial tier); automated PR write-back; an `lore` MCP client.
 
 ## License
 
