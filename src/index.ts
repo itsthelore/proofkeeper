@@ -62,10 +62,22 @@ export {
 } from "./agent/adapters/claude.js";
 export type { ClaudeModelClientOptions, AnthropicLike } from "./agent/adapters/claude.js";
 
-// Write-back (Initiative 5 — propose-only).
+// Write-back (Initiative 5 — propose-only, human-reviewed PR).
 export {
   renderVerifiedBySection,
+  renderVerificationLink,
   proposeVerifiedBy,
   VERIFIED_BY_HEADING,
 } from "./writeback/verified-by.js";
 export type { VerificationLink, VerifiedByProposal } from "./writeback/verified-by.js";
+export { mergeVerifiedBy } from "./writeback/merge.js";
+export { buildProposal, linksFromResults } from "./writeback/proposal.js";
+export type { BuildProposalInput, WriteBackProposal } from "./writeback/proposal.js";
+export { GitHubWriteBackProposer } from "./writeback/proposer.js";
+export type {
+  RepoGateway,
+  WriteBackProposer,
+  WriteBackInput,
+  WriteBackResult,
+  GitHubWriteBackProposerOptions,
+} from "./writeback/proposer.js";
