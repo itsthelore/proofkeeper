@@ -9,3 +9,6 @@ playwright-report/
 blob-report/
 .proofkeeper/
 traces/
+
+# Compiler output (emitted specs are regenerated from recorded sessions)
+examples/generated/
