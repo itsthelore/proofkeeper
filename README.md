@@ -92,12 +92,23 @@ The `AutonomousDriver` observes the page, asks your model for the next action,
 and drives the product through the `Recorder` — recording only what succeeds.
 Proofkeeper bundles no model: you implement `ModelClient` against your provider.
 
+A reference adapter for the Anthropic Claude API ships in the box —
+`ClaudeModelClient` — but it is **optional**. `@anthropic-ai/sdk` is an optional
+peer dependency, imported lazily, so installing Proofkeeper never pulls in a
+model SDK. Use the adapter, or implement `ModelClient` directly for any provider:
+
 ```ts
 import { chromium } from "@playwright/test";
-import { AutonomousDriver, CodegenCompiler, PlaywrightRunner, assessFidelity } from "@itsthelore/proofkeeper";
+import {
+  AutonomousDriver, CodegenCompiler, PlaywrightRunner, assessFidelity,
+  ClaudeModelClient, // optional reference adapter (needs `npm i @anthropic-ai/sdk` + ANTHROPIC_API_KEY)
+} from "@itsthelore/proofkeeper";
 
-const model = {
-  // Your provider call: turn the transcript + tools into tool calls or `done`.
+// Option A — the reference Claude adapter (defaults to claude-opus-4-8):
+const model = new ClaudeModelClient({ /* apiKey?, model?, thinking?, effort? */ });
+
+// Option B — bring your own provider by implementing ModelClient:
+const customModel = {
   async complete(request) {
     /* call your LLM with request.transcript and request.tools */
     return { toolCalls: [/* { name, arguments } */] };
@@ -156,12 +167,16 @@ the product through the `Recorder`, proven end-to-end by a model deciding action
 from observations through compile + a 3× green fidelity pass; a propose-only
 `## Verified By` write-back renderer.
 
-**Deferred (named, not silently dropped):** a bundled real-LLM `ModelClient`
-adapter (the drive is bring-your-own-model — you implement `complete()` against
-your provider; no model SDK is a dependency); a terminal tool surface (the drive
-is browser-only today); generalization of the recorder/tool set beyond the core
-actions; the cross-target/cross-OS matrix and VM-fabric runner; Proofkeeper Cloud
-(the hosted commercial tier); automated PR write-back; an `lore` MCP client.
+It ships an **optional** reference `ModelClient` adapter for the Anthropic Claude
+API (`ClaudeModelClient`), behind the bring-your-own-model boundary — the model
+SDK is an optional peer dependency, never a hard one.
+
+**Deferred (named, not silently dropped):** reference adapters for other
+providers (the `ModelClient` interface is the extension point); a terminal tool
+surface (the drive is browser-only today); generalization of the recorder/tool
+set beyond the core actions; the cross-target/cross-OS matrix and VM-fabric
+runner; Proofkeeper Cloud (the hosted commercial tier); automated PR write-back;
+an `lore` MCP client.
 
 ## License
 
