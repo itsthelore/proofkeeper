@@ -24,7 +24,8 @@ export interface VerificationLink {
 /** The heading the engine recognizes as the verified_by section (ADR-084). */
 export const VERIFIED_BY_HEADING = "## Verified By";
 
-function renderItem(link: VerificationLink): string {
+/** Render one verification link as a `## Verified By` list item. */
+export function renderVerificationLink(link: VerificationLink): string {
   const ref = link.label ? `${link.label} — \`${link.test}\`` : `\`${link.test}\``;
   const trace = link.trace ? ` (trace: \`${link.trace}\`)` : "";
   return `- ${ref}${trace}`;
@@ -40,7 +41,7 @@ export function renderVerifiedBySection(links: VerificationLink[]): string {
   if (links.length === 0) {
     throw new Error("refusing to render an empty `## Verified By` section");
   }
-  return [VERIFIED_BY_HEADING, "", ...links.map(renderItem), ""].join("\n");
+  return [VERIFIED_BY_HEADING, "", ...links.map(renderVerificationLink), ""].join("\n");
 }
 
 /** A proposed write-back: which capability, and the section to add to it. */
