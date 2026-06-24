@@ -28,9 +28,14 @@ export { PlaywrightRunner } from "./runner/playwright-runner.js";
 export type { PlaywrightRunnerOptions } from "./runner/playwright-runner.js";
 export { parseReport, reduceReport, ReportParseError } from "./runner/playwright-report.js";
 
-// Compiler (Initiative 2 — the moat; stubbed).
-export type { Compiler, Session, SessionStep, CandidateTest } from "./compiler/types.js";
-export { NotImplementedCompiler } from "./compiler/compiler.js";
+// Compiler (Initiative 2 — the moat).
+export type { Action, Locator, RecordedSession } from "./compiler/actions.js";
+export { emitSpec } from "./compiler/emit.js";
+export { Recorder } from "./compiler/recorder.js";
+export type { RecorderOptions } from "./compiler/recorder.js";
+export type { Compiler, CandidateTest } from "./compiler/types.js";
+export { CodegenCompiler, NotImplementedCompiler } from "./compiler/compiler.js";
+export type { CodegenCompilerOptions } from "./compiler/compiler.js";
 
 // Fidelity gate (Initiative 3 — the moat's acceptance bar).
 export { assessFidelity } from "./fidelity/gate.js";
