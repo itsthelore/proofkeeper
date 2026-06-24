@@ -9,34 +9,70 @@
 
 import type { Locator } from "../compiler/actions.js";
 
-/** The tools advertised to the model each turn. Names map to Recorder methods. */
-export const DRIVE_TOOLS: readonly { name: string; description: string }[] = [
-  { name: "navigate", description: "Go to a URL. args: { url: string }" },
-  {
-    name: "click",
-    description: "Click an element. args: { locator }",
+/** A tool definition advertised to the model, carrying a JSON Schema for args. */
+export interface DriveTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+/** JSON Schema for a {@link Locator} argument, shared across tools. */
+const LOCATOR_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  description: "How to find the element. Prefer role, testId, or text over css.",
+  properties: {
+    strategy: { type: "string", enum: ["role", "testId", "text", "label", "css"] },
+    role: { type: "string", description: "ARIA role, e.g. 'button' (strategy=role)" },
+    name: { type: "string", description: "Accessible name (strategy=role)" },
+    testId: { type: "string", description: "data-testid value (strategy=testId)" },
+    text: { type: "string", description: "Visible text (strategy=text)" },
+    label: { type: "string", description: "Form label (strategy=label)" },
+    selector: { type: "string", description: "CSS selector (strategy=css)" },
   },
+  required: ["strategy"],
+};
+
+function withLocator(extra: Record<string, unknown> = {}, required: string[] = []): Record<string, unknown> {
+  return {
+    type: "object",
+    properties: { locator: LOCATOR_SCHEMA, ...extra },
+    required: ["locator", ...required],
+  };
+}
+
+/** The tools advertised to the model each turn. Names map to Recorder methods. */
+export const DRIVE_TOOLS: readonly DriveTool[] = [
+  {
+    name: "navigate",
+    description: "Go to a URL.",
+    inputSchema: {
+      type: "object",
+      properties: { url: { type: "string", description: "Absolute URL to navigate to" } },
+      required: ["url"],
+    },
+  },
+  { name: "click", description: "Click an element.", inputSchema: withLocator() },
   {
     name: "fill",
-    description: "Fill a text input. args: { locator, value: string }",
+    description: "Fill a text input.",
+    inputSchema: withLocator({ value: { type: "string", description: "Text to type" } }, ["value"]),
   },
-  { name: "check", description: "Check a checkbox or radio. args: { locator }" },
+  { name: "check", description: "Check a checkbox or radio.", inputSchema: withLocator() },
   {
     name: "press",
-    description: "Press a key on an element. args: { locator, key: string }",
+    description: "Press a key on an element.",
+    inputSchema: withLocator({ key: { type: "string", description: "Key name, e.g. 'Enter'" } }, ["key"]),
   },
   {
     name: "expect_text",
-    description:
-      "Assert an element has exactly this text — record an observable outcome. args: { locator, text: string }",
+    description: "Assert an element has exactly this text — record an observable outcome.",
+    inputSchema: withLocator({ text: { type: "string", description: "Expected exact text" } }, ["text"]),
   },
-  {
-    name: "expect_visible",
-    description: "Assert an element is visible. args: { locator }",
-  },
+  { name: "expect_visible", description: "Assert an element is visible.", inputSchema: withLocator() },
   {
     name: "finish",
-    description: "End the session: the capability has been driven and asserted. args: {}",
+    description: "End the session: the capability has been driven and asserted.",
+    inputSchema: { type: "object", properties: {} },
   },
 ];
 

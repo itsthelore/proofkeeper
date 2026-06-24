@@ -17,8 +17,12 @@ export interface ToolCall {
 export interface ModelRequest {
   /** Prior transcript, oldest first. Free-form, provider-shaped by the adapter. */
   transcript: { role: "system" | "user" | "assistant"; content: string }[];
-  /** Tools the model may invoke this turn. */
-  tools: { name: string; description: string }[];
+  /**
+   * Tools the model may invoke this turn. `inputSchema` is a JSON Schema for
+   * the tool's arguments; adapters forward it to providers that require one
+   * (e.g. the Anthropic Messages API's `input_schema`).
+   */
+  tools: { name: string; description: string; inputSchema?: Record<string, unknown> }[];
 }
 
 /** The model's decision for a turn: either act (tool calls) or stop (text). */
