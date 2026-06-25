@@ -145,6 +145,11 @@ Lore corpus. It never commits to the base branch (ADR-065): it branches, commits
 the merged artifact to the branch, and opens a PR base ← head. The merge is pure
 and idempotent; re-proposing an already-present link opens no PR.
 
+The `## Verified By` section records **bare test paths** — the verifier the
+corpus keeps — so the engine's `verified_by` edge target stays a clean
+reference. The replayable trace is surfaced in the PR (body + comment) and as a
+committed artifact, not as a corpus edge.
+
 Repository operations go through an injected `RepoGateway`, so there is no hard
 GitHub dependency — wire it to Octokit, the `gh` CLI, or a GitHub MCP client:
 
@@ -157,9 +162,16 @@ const result = await proposer.propose({
   capabilityId: "REQ-VERIFY",
   targetPath: "rac/requirements/verify.md",
   links: linksFromResults(candidate, verdict.stable ? runResults : []),
+  fidelity: { attempts: 5, passed: 5, stable: true }, // optional: posts a confirmation comment
+  session,                                            // optional: a step summary + trace-replay hint in the PR
 });
-// result: { status: "proposed", url, number, headBranch } | { status: "no-change", reason }
+// result: { status: "proposed", url, number, headBranch, commentUrl? } | { status: "no-change", reason }
 ```
+
+When a recorded `session` is passed, the PR body and confirmation comment include
+a **readable step summary** of the driven flow and a **trace-replay hint**
+(`npx playwright show-trace …`) — so a reviewer verifies by reading the PR, and
+the trace is interactively replayable (not a watch-once recording).
 
 The merged artifact validates against the real engine (`rac validate` and
 `rac relationships --validate` stay clean), and the emitted `verified_by` edge
