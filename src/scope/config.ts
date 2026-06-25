@@ -18,10 +18,21 @@ export interface CapabilityConfig {
   url?: string;
   /** Optional named environment to target (else the config's default target). */
   environment?: string;
+  /** Optional persona (role) to drive this capability as. */
+  persona?: string;
   /** Optional goal for the model (else derived from the capability). */
   goal?: string;
   /** Optional corpus artifact path to propose the write-back to. */
   artifact?: string;
+}
+
+/** A user role the drive can act as. */
+export interface PersonaConfig {
+  name: string;
+  /** Areas this role should focus on. */
+  testFocus?: string[];
+  /** Actions this role must not perform. */
+  cannotDo?: string[];
 }
 
 /** A named environment the drive can target. */
@@ -45,6 +56,8 @@ export interface ProofkeeperConfig {
   defaultTarget?: string;
   /** How the product authenticates. */
   auth?: AuthConfig;
+  /** User roles a capability can be driven as. */
+  personas?: PersonaConfig[];
 }
 
 /** A capability's resolved run target. */
@@ -79,9 +92,30 @@ function parseCapability(raw: unknown, index: number): CapabilityConfig {
   const cap: CapabilityConfig = { id, paths: paths as string[] };
   if (typeof raw["url"] === "string") cap.url = raw["url"];
   if (typeof raw["environment"] === "string") cap.environment = raw["environment"];
+  if (typeof raw["persona"] === "string") cap.persona = raw["persona"];
   if (typeof raw["goal"] === "string") cap.goal = raw["goal"];
   if (typeof raw["artifact"] === "string") cap.artifact = raw["artifact"];
   return cap;
+}
+
+function stringArray(value: unknown, where: string): string[] {
+  if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
+    throw new ConfigParseError(`${where} must be an array of strings`);
+  }
+  return value as string[];
+}
+
+function parsePersonas(raw: unknown): PersonaConfig[] {
+  if (!Array.isArray(raw)) throw new ConfigParseError("`personas` must be an array");
+  return raw.map((value, index) => {
+    if (!isObject(value) || typeof value["name"] !== "string" || value["name"] === "") {
+      throw new ConfigParseError(`personas[${index}].name must be a non-empty string`);
+    }
+    const persona: PersonaConfig = { name: value["name"] };
+    if (value["testFocus"] !== undefined) persona.testFocus = stringArray(value["testFocus"], `personas[${index}].testFocus`);
+    if (value["cannotDo"] !== undefined) persona.cannotDo = stringArray(value["cannotDo"], `personas[${index}].cannotDo`);
+    return persona;
+  });
 }
 
 function parseEnvironments(raw: unknown): Record<string, EnvironmentConfig> {
@@ -128,7 +162,22 @@ export function parseConfig(json: string): ProofkeeperConfig {
   if (raw["environments"] !== undefined) config.environments = parseEnvironments(raw["environments"]);
   if (typeof raw["defaultTarget"] === "string") config.defaultTarget = raw["defaultTarget"];
   if (raw["auth"] !== undefined) config.auth = parseAuth(raw["auth"]);
+  if (raw["personas"] !== undefined) config.personas = parsePersonas(raw["personas"]);
   return config;
+}
+
+/**
+ * Goal context for a capability's selected persona, or undefined when it names
+ * none. Throws when the named persona is not defined in the config.
+ */
+export function personaContext(config: ProofkeeperConfig, cap: CapabilityConfig): string | undefined {
+  if (cap.persona === undefined) return undefined;
+  const persona = config.personas?.find((p) => p.name === cap.persona);
+  if (!persona) throw new ConfigParseError(`capability '${cap.id}' references undefined persona '${cap.persona}'`);
+  const parts = [`Act as the ${persona.name} persona.`];
+  if (persona.testFocus && persona.testFocus.length > 0) parts.push(`Focus on: ${persona.testFocus.join(", ")}.`);
+  if (persona.cannotDo && persona.cannotDo.length > 0) parts.push(`Do not: ${persona.cannotDo.join(", ")}.`);
+  return parts.join(" ");
 }
 
 /**
