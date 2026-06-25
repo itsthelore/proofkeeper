@@ -65,8 +65,14 @@ function fakeDrive(captured: { options?: DriveOptions }): QaDeps["drive"] {
       title: options.title,
       startUrl: options.startUrl,
       actions: [{ type: "goto", url: options.startUrl }],
+      ...(options.plan ? { plan: "1. Navigate to the page\n2. Assert the outcome" } : {}),
     };
-    return Promise.resolve({ session, finished: true, steps: 2 } satisfies DriveResult);
+    return Promise.resolve({
+      session,
+      finished: true,
+      steps: 2,
+      ...(options.plan ? { plan: "1. Navigate to the page\n2. Assert the outcome" } : {}),
+    } satisfies DriveResult);
   };
 }
 
@@ -174,6 +180,31 @@ describe("runQa", () => {
       propose: { targetPath: "rac/b.md" },
     });
     expect(proposer.input?.steps).toEqual(["Navigate to http://x/"]);
+  });
+
+  it("runs a planning turn and threads the plan into the write-back when enabled", async () => {
+    const proposer = new FakeProposer();
+    const captured: { options?: DriveOptions } = {};
+    const deps: QaDeps = { drive: fakeDrive(captured), compiler: new FakeCompiler(), runner: new FakeRunner("passed"), proposer };
+    await runQa(deps, {
+      graph: GRAPH,
+      startUrl: "http://x/",
+      target: TARGET,
+      n: 1,
+      plan: true,
+      propose: { targetPath: "rac/b.md" },
+    });
+    expect(captured.options?.plan).toBe(true);
+    expect(proposer.input?.plan).toContain("Navigate to the page");
+  });
+
+  it("does not request a plan or thread one when planning is off", async () => {
+    const proposer = new FakeProposer();
+    const captured: { options?: DriveOptions } = {};
+    const deps: QaDeps = { drive: fakeDrive(captured), compiler: new FakeCompiler(), runner: new FakeRunner("passed"), proposer };
+    await runQa(deps, { graph: GRAPH, startUrl: "http://x/", target: TARGET, n: 1, propose: { targetPath: "rac/b.md" } });
+    expect(captured.options?.plan).toBeUndefined();
+    expect(proposer.input?.plan).toBeUndefined();
   });
 });
 
