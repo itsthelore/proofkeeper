@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseQaArgs } from "../src/cli.js";
 import { runQa, selectCapability, defaultGoal, type QaDeps } from "../src/qa/run-qa.js";
+import { InMemoryLearningStore } from "../src/learning/store.js";
 import type { Graph } from "../src/coverage/graph.js";
 import type { RecordedSession } from "../src/compiler/actions.js";
 import type { CandidateTest, Compiler } from "../src/compiler/types.js";
@@ -160,6 +161,48 @@ describe("runQa", () => {
     expect(result.verified).toBe(true);
     expect(result.writeBack).toBeUndefined();
     expect(proposer.input).toBeUndefined();
+  });
+
+  it("threads the readable step summary into the write-back proposal", async () => {
+    const proposer = new FakeProposer();
+    const deps: QaDeps = { drive: fakeDrive({}), compiler: new FakeCompiler(), runner: new FakeRunner("passed"), proposer };
+    await runQa(deps, {
+      graph: GRAPH,
+      startUrl: "http://x/",
+      target: TARGET,
+      n: 1,
+      propose: { targetPath: "rac/b.md" },
+    });
+    expect(proposer.input?.steps).toEqual(["Navigate to http://x/"]);
+  });
+});
+
+describe("runQa — failure-learning", () => {
+  it("records a failure when the test is unstable", async () => {
+    const learning = new InMemoryLearningStore();
+    const deps: QaDeps = { drive: fakeDrive({}), compiler: new FakeCompiler(), runner: new FakeRunner("failed"), learning };
+    await runQa(deps, { graph: GRAPH, startUrl: "http://x/", target: TARGET, n: 2 });
+
+    const failures = await learning.priorFailures("REQ-B");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.reason).toMatch(/unstable: 0\/2/);
+  });
+
+  it("feeds prior failure reasons into the next drive", async () => {
+    const learning = new InMemoryLearningStore();
+    await learning.recordFailure({ capabilityId: "REQ-B", reason: "the Verify button moved" });
+    const captured: { options?: DriveOptions } = {};
+    const deps: QaDeps = { drive: fakeDrive(captured), compiler: new FakeCompiler(), runner: new FakeRunner("passed"), learning };
+    await runQa(deps, { graph: GRAPH, startUrl: "http://x/", target: TARGET, n: 1 });
+
+    expect(captured.options?.priorFailures).toEqual(["the Verify button moved"]);
+  });
+
+  it("records nothing when the test is stable", async () => {
+    const learning = new InMemoryLearningStore();
+    const deps: QaDeps = { drive: fakeDrive({}), compiler: new FakeCompiler(), runner: new FakeRunner("passed"), learning };
+    await runQa(deps, { graph: GRAPH, startUrl: "http://x/", target: TARGET, n: 1 });
+    expect(await learning.priorFailures("REQ-B")).toEqual([]);
   });
 });
 

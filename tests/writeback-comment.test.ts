@@ -34,6 +34,23 @@ describe("renderWriteBackComment", () => {
     });
     expect(body).toContain("2/3 re-runs green — unstable, quarantined");
   });
+
+  it("renders the step summary and a trace-replay hint", () => {
+    const body = renderWriteBackComment({
+      capabilityId: "REQ-X",
+      links: [{ test: "t.spec.ts", trace: "traces/x.zip" }],
+      steps: ["Navigate to http://x/", "Click the button \"Verify\""],
+    });
+    expect(body).toContain("Steps exercised:");
+    expect(body).toContain("1. Navigate to http://x/");
+    expect(body).toContain('2. Click the button "Verify"');
+    expect(body).toContain("Replay the trace locally: `npx playwright show-trace traces/x.zip`");
+  });
+
+  it("omits the trace-replay hint when no link has a trace", () => {
+    const body = renderWriteBackComment({ capabilityId: "REQ-X", links: [{ test: "t.spec.ts" }] });
+    expect(body).not.toContain("show-trace");
+  });
 });
 
 const REPORT: CoverageReport = {
