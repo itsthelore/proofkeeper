@@ -17,9 +17,9 @@
 
 /** A single verifying reference: a committed test and, optionally, its trace. */
 export interface VerificationLink {
-  /** Path/reference to the committed Playwright test — the corpus verifier. */
+  /** Path/reference to the committed Playwright test. */
   test: string;
-  /** Optional replayable trace artifact — surfaced in the PR, not the corpus. */
+  /** Optional path/reference to the replayable trace artifact. */
   trace?: string;
 }
 
@@ -27,17 +27,30 @@ export interface VerificationLink {
 export const VERIFIED_BY_HEADING = "## Verified By";
 
 /**
- * Render one verification link as a `## Verified By` list item: a single bare
- * backticked test path, so the engine's edge target is a clean reference (the
- * trace lives in the PR, not the section).
+ * Flatten links into their external reference paths — the test and, when
+ * present, the trace — deduplicated, preserving order. These are the bare
+ * targets the engine records (both are external-target references, ADR-084).
  */
-export function renderVerifiedByItem(link: VerificationLink): string {
-  return `- \`${link.test}\``;
+export function verificationRefs(links: VerificationLink[]): string[] {
+  const refs: string[] = [];
+  for (const link of links) {
+    refs.push(link.test);
+    if (link.trace) refs.push(link.trace);
+  }
+  return [...new Set(refs)];
+}
+
+/**
+ * Render one reference as a `## Verified By` list item: a single bare backticked
+ * path, so the engine's edge target is a clean reference.
+ */
+export function renderVerifiedByItem(ref: string): string {
+  return `- \`${ref}\``;
 }
 
 /**
  * Render the `## Verified By` section body Proofkeeper proposes for a
- * capability. Returns the heading plus one list item per link.
+ * capability — the heading plus one bare item per reference (test and trace).
  *
  * @throws {Error} when given no links — an empty section is never proposed.
  */
@@ -45,7 +58,7 @@ export function renderVerifiedBySection(links: VerificationLink[]): string {
   if (links.length === 0) {
     throw new Error("refusing to render an empty `## Verified By` section");
   }
-  return [VERIFIED_BY_HEADING, "", ...links.map(renderVerifiedByItem), ""].join("\n");
+  return [VERIFIED_BY_HEADING, "", ...verificationRefs(links).map(renderVerifiedByItem), ""].join("\n");
 }
 
 /** A proposed write-back: which capability, and the section to add to it. */

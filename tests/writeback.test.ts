@@ -13,11 +13,11 @@ describe("renderVerifiedBySection", () => {
     expect(md).toContain("- `tests/e2e/login.spec.ts`");
   });
 
-  it("records bare test paths only — the trace stays out of the corpus section", () => {
+  it("records the test and the trace as separate bare references", () => {
     const md = renderVerifiedBySection([{ test: "tests/e2e/login.spec.ts", trace: "traces/login.zip" }]);
     expect(md).toContain("- `tests/e2e/login.spec.ts`");
-    expect(md).not.toContain("traces/login.zip");
-    expect(md).not.toContain("(trace:");
+    expect(md).toContain("- `traces/login.zip`");
+    expect(md).not.toContain("(trace:"); // no inline decoration — bare paths only
   });
 
   it("renders one item per link", () => {

@@ -4,7 +4,6 @@ import { buildProposal, linksFromResults } from "../src/writeback/proposal.js";
 import { GitHubWriteBackProposer, type RepoGateway } from "../src/writeback/proposer.js";
 import type { CandidateTest } from "../src/compiler/types.js";
 import type { RunResult } from "../src/runner/types.js";
-import type { RecordedSession } from "../src/compiler/actions.js";
 
 const ARTIFACT = `# Requirement: Login\n\n## Requirements\n\nUsers can log in.\n\n## Related Decisions\n\n- adr-001\n`;
 
@@ -139,26 +138,6 @@ describe("GitHubWriteBackProposer", () => {
     const r2 = await new GitHubWriteBackProposer(noFidelity).propose(input);
     expect(r2.status === "proposed" && r2.commentUrl).toBeUndefined();
     expect(noFidelity.comments).toEqual([]);
-  });
-
-  it("posts a step-summary comment when a recorded session is supplied (no fidelity)", async () => {
-    const session: RecordedSession = {
-      capabilityId: "REQ-LOGIN",
-      title: "login flow",
-      startUrl: "http://localhost/",
-      actions: [
-        { type: "goto", url: "http://localhost/" },
-        { type: "click", locator: { kind: "role", role: "button", name: "Log in" } },
-      ],
-    };
-    const gateway = new FakeGateway(ARTIFACT);
-    const result = await new GitHubWriteBackProposer(gateway).propose({ ...input, session });
-
-    expect(result.status === "proposed" && result.commentUrl).toBeTruthy();
-    expect(gateway.comments).toHaveLength(1);
-    expect(gateway.comments[0]!.body).toContain("Steps exercised:");
-    expect(gateway.comments[0]!.body).toContain('Click the button "Log in"');
-    expect(gateway.comments[0]!.body).not.toContain("Fidelity gate");
   });
 
   it("opens no PR and writes nothing when the link is already present", async () => {

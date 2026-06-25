@@ -35,8 +35,6 @@ export function renderWriteBackComment(input: {
   capabilityId: string;
   links: VerificationLink[];
   fidelity?: FidelitySummary;
-  /** Reviewer-facing step lines (from `summarizeSession`) for the driven flow. */
-  steps?: string[];
 }): string {
   const lines = [
     `Proofkeeper recorded verification for **${input.capabilityId}**.`,
@@ -44,11 +42,6 @@ export function renderWriteBackComment(input: {
     "Linked evidence:",
     ...input.links.map(linkLine),
   ];
-
-  if (input.steps && input.steps.length > 0) {
-    lines.push("", "Steps exercised:", ...input.steps);
-  }
-
   if (input.fidelity) {
     const f = input.fidelity;
     lines.push(
@@ -56,13 +49,6 @@ export function renderWriteBackComment(input: {
       `Fidelity gate: ${f.passed}/${f.attempts} re-runs green — ${f.stable ? "stable, safe to commit" : "unstable, quarantined"}.`,
     );
   }
-
-  // Replayable trace beats a watch-once recording: tell the reviewer how to open it.
-  const traces = input.links.map((l) => l.trace).filter((t): t is string => Boolean(t));
-  if (traces.length > 0) {
-    lines.push("", "Replay the trace interactively:", ...traces.map((t) => `- \`npx playwright show-trace ${t}\``));
-  }
-
   lines.push("", REVIEW_NOTE);
   return lines.join("\n");
 }

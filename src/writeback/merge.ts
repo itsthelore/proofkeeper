@@ -18,6 +18,7 @@
 
 import {
   renderVerifiedByItem,
+  verificationRefs,
   VERIFIED_BY_HEADING,
   type VerificationLink,
 } from "./verified-by.js";
@@ -43,19 +44,15 @@ function level2Headings(lines: string[]): Heading[] {
   return headings;
 }
 
-/** The first backtick-quoted token on a list item — its test reference. */
-function itemTestRef(item: string): string | undefined {
+/** The first backtick-quoted token on a list item — its reference path. */
+function itemRef(item: string): string | undefined {
   return /`([^`]+)`/.exec(item)?.[1];
 }
 
-/** Deduplicate links by test reference, preserving first occurrence. */
-function dedupeLinks(links: VerificationLink[]): VerificationLink[] {
-  const seen = new Set<string>();
-  return links.filter((l) => (seen.has(l.test) ? false : (seen.add(l.test), true)));
-}
-
 /**
- * Merge `links` into the `## Verified By` section of `content`.
+ * Merge `links` into the `## Verified By` section of `content`. Each link
+ * contributes its bare test reference and, when present, its bare trace
+ * reference (both are external-target references, ADR-084).
  *
  * @throws {Error} when `links` is empty — an empty section is never written.
  */
@@ -63,7 +60,7 @@ export function mergeVerifiedBy(content: string, links: VerificationLink[]): str
   if (links.length === 0) {
     throw new Error("refusing to merge an empty `## Verified By` section");
   }
-  const wanted = dedupeLinks(links);
+  const wanted = verificationRefs(links);
   const lines = content.split("\n");
   const headings = level2Headings(lines);
   const existing = headings.find((h) => h.title === SECTION_TITLE);
@@ -74,11 +71,9 @@ export function mergeVerifiedBy(content: string, links: VerificationLink[]): str
     const end = next ? next.line : lines.length;
     const sectionLines = lines.slice(existing.line, end);
     const presentRefs = new Set(
-      sectionLines.filter((l) => l.startsWith("- ")).map(itemTestRef).filter(Boolean) as string[],
+      sectionLines.filter((l) => l.startsWith("- ")).map(itemRef).filter(Boolean) as string[],
     );
-    const additions = wanted
-      .filter((l) => !presentRefs.has(l.test))
-      .map(renderVerifiedByItem);
+    const additions = wanted.filter((ref) => !presentRefs.has(ref)).map(renderVerifiedByItem);
     if (additions.length === 0) return content; // idempotent: nothing new
 
     // Insert new items after the last existing list item (or after the heading).

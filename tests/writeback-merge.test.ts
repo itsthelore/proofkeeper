@@ -73,9 +73,16 @@ describe("mergeVerifiedBy", () => {
     expect(headings(second).filter((h) => h === "Verified By")).toHaveLength(1);
   });
 
-  it("dedupes links by test reference within one merge", () => {
+  it("dedupes references within one merge", () => {
     const out = mergeVerifiedBy(ARTIFACT, [{ test: "x.spec.ts" }, { test: "x.spec.ts" }]);
     expect(out.match(/- `x\.spec\.ts`/g)).toHaveLength(1);
+  });
+
+  it("records the test and the trace as separate bare bullets", () => {
+    const out = mergeVerifiedBy(ARTIFACT, [{ test: "a.spec.ts", trace: "traces/a.zip" }]);
+    const items = out.split("\n").filter((l) => l.startsWith("- `"));
+    expect(items).toContain("- `a.spec.ts`");
+    expect(items).toContain("- `traces/a.zip`");
   });
 
   it("appends at the end when there are no relationship sections", () => {
