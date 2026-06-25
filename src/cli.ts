@@ -16,6 +16,8 @@ import { renderHuman, renderJson } from "./coverage/report.js";
 import { GraphParseError } from "./coverage/graph.js";
 import { loadGraphFromCorpus, loadGraphFromFile } from "./coverage/source.js";
 import { runQa, type QaDeps, type QaOptions } from "./qa/run-qa.js";
+import { runScopedQa, type ScopedQaResult } from "./qa/run-scoped.js";
+import { parseConfig, ConfigParseError } from "./scope/config.js";
 import { AutonomousDriver, type DriveOptions, type DriveResult } from "./agent/drive.js";
 import type { ModelClient } from "./agent/model.js";
 import { ClaudeModelClient } from "./agent/adapters/claude.js";
@@ -24,6 +26,13 @@ import { PlaywrightRunner } from "./runner/playwright-runner.js";
 import type { RunTarget } from "./runner/types.js";
 import { GitHubRestGateway } from "./writeback/gateways/github-rest.js";
 import { GitHubWriteBackProposer, type WriteBackProposer } from "./writeback/proposer.js";
+import { renderScopedQaComment, type ScopedQaCommentInput, type ScopedQaCommentRow } from "./writeback/comment.js";
+
+import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 const EXIT_OK = 0;
 const EXIT_UNVERIFIED = 1;
@@ -34,12 +43,16 @@ const USAGE = `proofkeeper — autonomous verification for the Lore family
 Usage:
   proofkeeper coverage (--graph-file <path> | --corpus <dir>) [--json]
   proofkeeper qa (--graph-file <path> | --corpus <dir>) --url <url> [options]
+  proofkeeper qa (--graph-file <path> | --corpus <dir>) --config <path>
+                 (--changed <files> | --base-ref <ref>) [options]
   proofkeeper --help
 
 Commands:
   coverage    Report which Lore capabilities have no verifying (verified_by) test.
   qa          Drive one capability, compile a test, gate it on fidelity, and
               (optionally) propose the Verified By write-back. Alias: verify.
+              With --config, scope to a change: drive every unverified capability
+              the changed files touch and post the evidence to a pull request.
 
 Coverage options:
   --graph-file <path>   Read a 'rac export --graph' JSON file (primary).
@@ -60,6 +73,15 @@ qa options:
   --target-path <path>  Artifact to write back to (required with --propose).
   --repo <owner/name>   Target repository for the write-back (required with --propose).
   --base <branch>       Base branch the write-back PR targets (default: main).
+
+scoped qa options (with --config):
+  --config <path>       Path map: which capabilities each changed file touches.
+  --changed <a,b,c>     Comma-separated changed files (else --base-ref).
+  --base-ref <ref>      Diff against this git ref to find changed files.
+  --url <url>           Default start URL when a config capability declares none.
+  --propose             Propose a write-back for capabilities that declare an artifact.
+  --repo <owner/name>   Repository for write-backs and the PR comment.
+  --pr <number>         Post the scoped-QA evidence comment on this pull request.
 
 Model: qa uses the bundled Claude adapter when ANTHROPIC_API_KEY is set. Bring a
 different provider by calling runQa() from the library with your own ModelClient.
@@ -282,6 +304,9 @@ function resolveProposer(args: QaArgs): WriteBackProposer | undefined {
 }
 
 async function runQaCommand(argv: string[]): Promise<number> {
+  // PR-triggered scoped mode is selected by --config.
+  if (argv.includes("--config")) return runScopedCommand(argv);
+
   const args = parseQaArgs(argv);
   const model = resolveModel();
   const proposer = resolveProposer(args);
@@ -336,6 +361,198 @@ function renderQaResult(result: Awaited<ReturnType<typeof runQa>>): string {
 }
 
 // ---------------------------------------------------------------------------
+// qa --config (PR-triggered, diff-scoped)
+// ---------------------------------------------------------------------------
+
+export interface ScopedArgs {
+  graphFile?: string;
+  corpus?: string;
+  config: string;
+  changed?: string[];
+  baseRef?: string;
+  url?: string;
+  targetName: string;
+  n: number;
+  maxSteps?: number;
+  outDir: string;
+  propose: boolean;
+  base?: string;
+  repo?: string;
+  pr?: number;
+}
+
+/** Parse `qa --config …` (scoped) arguments. Pure and exported for testing. */
+export function parseScopedArgs(argv: string[]): ScopedArgs {
+  const raw: Partial<ScopedArgs> & { propose: boolean } = { propose: false };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    switch (arg) {
+      case "--graph-file":
+        raw.graphFile = requireValue(argv[++i], "--graph-file");
+        break;
+      case "--corpus":
+        raw.corpus = requireValue(argv[++i], "--corpus");
+        break;
+      case "--config":
+        raw.config = requireValue(argv[++i], "--config");
+        break;
+      case "--changed":
+        raw.changed = requireValue(argv[++i], "--changed")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        break;
+      case "--base-ref":
+        raw.baseRef = requireValue(argv[++i], "--base-ref");
+        break;
+      case "--url":
+        raw.url = requireValue(argv[++i], "--url");
+        break;
+      case "--target-name":
+        raw.targetName = requireValue(argv[++i], "--target-name");
+        break;
+      case "--n":
+        raw.n = parsePositiveInt(argv[++i], "--n");
+        break;
+      case "--max-steps":
+        raw.maxSteps = parsePositiveInt(argv[++i], "--max-steps");
+        break;
+      case "--out-dir":
+        raw.outDir = requireValue(argv[++i], "--out-dir");
+        break;
+      case "--propose":
+        raw.propose = true;
+        break;
+      case "--base":
+        raw.base = requireValue(argv[++i], "--base");
+        break;
+      case "--repo":
+        raw.repo = requireValue(argv[++i], "--repo");
+        break;
+      case "--pr":
+        raw.pr = parsePositiveInt(argv[++i], "--pr");
+        break;
+      default:
+        throw new UsageError(`unknown option '${arg}'`);
+    }
+  }
+
+  if (!raw.graphFile && !raw.corpus) throw new UsageError("qa requires --graph-file <path> or --corpus <dir>");
+  if (raw.graphFile && raw.corpus) throw new UsageError("pass only one of --graph-file or --corpus");
+  if (!raw.config) throw new UsageError("scoped qa requires --config <path>");
+  if (!raw.changed && !raw.baseRef) throw new UsageError("scoped qa requires --changed <files> or --base-ref <ref>");
+  if (raw.changed && raw.baseRef) throw new UsageError("pass only one of --changed or --base-ref");
+  if ((raw.propose || raw.pr !== undefined) && !raw.repo) {
+    throw new UsageError("--propose / --pr require --repo <owner/name>");
+  }
+  if (raw.repo && !raw.repo.includes("/")) throw new UsageError("--repo must be 'owner/name'");
+
+  return {
+    ...(raw.graphFile !== undefined ? { graphFile: raw.graphFile } : {}),
+    ...(raw.corpus !== undefined ? { corpus: raw.corpus } : {}),
+    config: raw.config,
+    ...(raw.changed !== undefined ? { changed: raw.changed } : {}),
+    ...(raw.baseRef !== undefined ? { baseRef: raw.baseRef } : {}),
+    ...(raw.url !== undefined ? { url: raw.url } : {}),
+    targetName: raw.targetName ?? "local",
+    n: raw.n ?? 3,
+    ...(raw.maxSteps !== undefined ? { maxSteps: raw.maxSteps } : {}),
+    outDir: raw.outDir ?? "tests/generated",
+    propose: raw.propose,
+    ...(raw.base !== undefined ? { base: raw.base } : {}),
+    ...(raw.repo !== undefined ? { repo: raw.repo } : {}),
+    ...(raw.pr !== undefined ? { pr: raw.pr } : {}),
+  };
+}
+
+/** Files changed against a git ref, as `git diff --name-only <ref>`. */
+async function gitChangedFiles(baseRef: string): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync("git", ["diff", "--name-only", baseRef], { maxBuffer: 16 * 1024 * 1024 });
+    return stdout.split("\n").map((s) => s.trim()).filter(Boolean);
+  } catch (err) {
+    throw new UsageError(`git diff --name-only ${baseRef} failed: ${(err as Error).message}`);
+  }
+}
+
+/** Map a scoped run into the PR comment input. */
+function toScopedComment(result: ScopedQaResult, changedCount: number): ScopedQaCommentInput {
+  const driven: ScopedQaCommentRow[] = result.driven.map((d) => {
+    if (d.error !== undefined) return { id: d.capability.id, title: d.capability.title, error: d.error };
+    const r = d.result!;
+    const row: ScopedQaCommentRow = { id: d.capability.id, title: d.capability.title, stable: r.verified };
+    if (r.writeBack?.status === "proposed") row.writeBackUrl = r.writeBack.url;
+    return row;
+  });
+  return {
+    changedCount,
+    driven,
+    alreadyVerified: result.scope.scoped.filter((s) => s.verified).map((s) => ({ id: s.id, title: s.title })),
+    unknown: result.scope.unknown,
+  };
+}
+
+async function runScopedCommand(argv: string[]): Promise<number> {
+  const args = parseScopedArgs(argv);
+  const model = resolveModel();
+
+  const graph = args.graphFile
+    ? await loadGraphFromFile(args.graphFile)
+    : await loadGraphFromCorpus(args.corpus!);
+
+  let configText: string;
+  try {
+    configText = await readFile(args.config, "utf8");
+  } catch (err) {
+    throw new UsageError(`could not read config '${args.config}': ${(err as Error).message}`);
+  }
+  const config = parseConfig(configText);
+
+  const changedPaths = args.changed ?? (await gitChangedFiles(args.baseRef!));
+
+  // A gateway is needed to propose write-backs and/or post the PR comment.
+  let gateway: GitHubRestGateway | undefined;
+  if (args.repo) {
+    const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+    if (!token) throw new UsageError("--propose / --pr need a GitHub token in GITHUB_TOKEN.");
+    const [owner, repo] = args.repo.split("/", 2);
+    gateway = new GitHubRestGateway({ owner: owner!, repo: repo!, token });
+  }
+  const proposer = args.propose && gateway ? new GitHubWriteBackProposer(gateway) : undefined;
+
+  const deps: QaDeps = {
+    drive: browserDrive(model),
+    compiler: new CodegenCompiler({ outDir: args.outDir }),
+    runner: new PlaywrightRunner(),
+    ...(proposer ? { proposer } : {}),
+  };
+
+  const result = await runScopedQa(deps, {
+    graph,
+    config,
+    changedPaths,
+    targetName: args.targetName,
+    ...(args.url !== undefined ? { defaultUrl: args.url } : {}),
+    n: args.n,
+    ...(args.maxSteps !== undefined ? { maxSteps: args.maxSteps } : {}),
+    ...(args.propose ? { propose: { ...(args.base !== undefined ? { baseBranch: args.base } : {}) } } : {}),
+  });
+
+  process.stdout.write(renderScopedQaComment(toScopedComment(result, changedPaths.length)) + "\n");
+
+  if (gateway && args.pr !== undefined) {
+    await gateway.commentOnPullRequest({
+      number: args.pr,
+      body: renderScopedQaComment(toScopedComment(result, changedPaths.length)),
+    });
+  }
+
+  // Gate red if any touched-and-unverified capability did not become stable.
+  const anyUnverified = result.driven.some((d) => d.error !== undefined || d.result?.verified !== true);
+  return anyUnverified ? EXIT_UNVERIFIED : EXIT_OK;
+}
+
+// ---------------------------------------------------------------------------
 // dispatch
 // ---------------------------------------------------------------------------
 
@@ -363,7 +580,7 @@ export async function main(argv: string[]): Promise<number> {
       process.stderr.write(`error: ${err.message}\n\n${USAGE}`);
       return EXIT_USAGE;
     }
-    if (err instanceof GraphParseError) {
+    if (err instanceof GraphParseError || err instanceof ConfigParseError) {
       process.stderr.write(`error: ${err.message}\n`);
       return EXIT_USAGE;
     }
