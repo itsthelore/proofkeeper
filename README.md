@@ -104,6 +104,27 @@ proofkeeper coverage --corpus path/to/rac/
 Exit codes: `0` every capability is verified, `1` one or more are unverified
 (so it gates cleanly in CI), `2` usage or parse error.
 
+## Onboard a project (`init`)
+
+PR-triggered QA needs a `proofkeeper.config.json`. Rather than hand-author it,
+`proofkeeper init` scaffolds a skeleton straight from the coverage graph — one
+capability per requirement node (unverified first), plus a starter environment,
+default target, and failure-learning strategy. It reads **only** the published
+Lore contract (`rac export --graph`) — never your product source — so it stays
+within the verification mandate, and it never overwrites an existing file.
+
+```bash
+# Scaffold proofkeeper.config.json from a corpus (or --graph-file):
+proofkeeper init --corpus path/to/rac/ --url http://localhost:3000
+
+# Write elsewhere; refuses to clobber an existing file:
+proofkeeper init --graph-file graph.json --out config/proofkeeper.config.json
+```
+
+The generated capabilities carry placeholder `["src/**"]` globs; the printed
+next steps walk you through narrowing the paths and adding auth/personas. Exit
+codes: `0` written, `2` usage error or the target file already exists.
+
 ## Verify a capability (one command)
 
 `proofkeeper qa` (alias `verify`) runs the whole loop behind one command: it
