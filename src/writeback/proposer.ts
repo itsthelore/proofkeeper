@@ -14,7 +14,7 @@
  */
 
 import { buildProposal } from "./proposal.js";
-import { renderWriteBackComment, type FidelitySummary } from "./comment.js";
+import { renderWriteBackComment, upsertComment, WRITE_BACK_MARKER, type FidelitySummary } from "./comment.js";
 import type { VerificationLink } from "./verified-by.js";
 
 /** The repository operations the proposer needs. Implement against any backend. */
@@ -32,6 +32,10 @@ export interface RepoGateway {
   }>;
   /** Post an informational comment on a pull request. Never approves or merges. */
   commentOnPullRequest(input: { number: number; body: string }): Promise<{ url: string }>;
+  /** List a pull request's comments (id + body), for find-or-update of a marked comment. */
+  listComments(prNumber: number): Promise<{ id: number; body: string }[]>;
+  /** Update a comment's body in place. */
+  updateComment(commentId: number, body: string): Promise<{ url: string }>;
 }
 
 export interface WriteBackInput {
@@ -107,10 +111,11 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
     };
 
     // Optional confirmation comment carrying the fidelity evidence the PR body
-    // does not. Informational only.
+    // does not. Informational only, and idempotent (one per PR, updated in place).
     if (input.fidelity) {
-      const comment = await this.gateway.commentOnPullRequest({
+      const comment = await upsertComment(this.gateway, {
         number: pr.number,
+        marker: WRITE_BACK_MARKER,
         body: renderWriteBackComment({
           capabilityId: input.capabilityId,
           links: input.links,

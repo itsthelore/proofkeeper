@@ -19,6 +19,16 @@ import type { VerificationLink } from "./verified-by.js";
 const REVIEW_NOTE =
   "_Informational — a human reviewer accepts the link (ADR-065). Proofkeeper produces and runs the evidence; it does not merge or approve._";
 
+/**
+ * Hidden, namespaced markers identifying each Proofkeeper comment kind. Embedded
+ * as invisible HTML comments at the top of a body so a pull request carries one
+ * canonical comment per kind that {@link upsertComment} finds and updates in
+ * place, regardless of how the prose is reformatted.
+ */
+export const SCOPED_QA_MARKER = "<!-- proofkeeper:scoped-qa -->";
+export const WRITE_BACK_MARKER = "<!-- proofkeeper:write-back -->";
+export const COVERAGE_MARKER = "<!-- proofkeeper:coverage -->";
+
 /** Outcome of the fidelity gate, as summarized in a comment. */
 export interface FidelitySummary {
   attempts: number;
@@ -39,6 +49,7 @@ export function renderWriteBackComment(input: {
   steps?: string[];
 }): string {
   const lines = [
+    WRITE_BACK_MARKER,
     `Proofkeeper recorded verification for **${input.capabilityId}**.`,
     "",
     "Linked evidence:",
@@ -73,6 +84,7 @@ export function renderCoverageComment(report: CoverageReport, options: CoverageC
   const heading = options.title ?? "Proofkeeper verification coverage";
   const src = report.source ? ` for \`${report.source}\`` : "";
   const lines = [
+    COVERAGE_MARKER,
     `## ${heading}${src}`,
     "",
     `${report.verified.length}/${report.total} capabilities have a verifying test; ${report.unverified.length} unverified.`,
@@ -120,6 +132,7 @@ export interface ScopedQaCommentInput {
 /** Scoped-QA evidence comment for the feature PR that triggered the run. */
 export function renderScopedQaComment(input: ScopedQaCommentInput): string {
   const lines = [
+    SCOPED_QA_MARKER,
     `## Proofkeeper QA — ${input.changedCount} changed file(s)`,
     "",
     input.driven.length > 0
@@ -147,16 +160,37 @@ export function renderScopedQaComment(input: ScopedQaCommentInput): string {
 }
 
 /**
- * Post a verification-coverage status comment on a feature pull request. The
- * report comes from the coverage read-model (`computeCoverage`). Informational
- * only — it never approves or merges.
+ * Maintain exactly one comment per kind on a pull request: find the existing
+ * comment whose body carries `marker` and update it in place; otherwise create
+ * one (the body itself carries the marker, so it is self-identifying next time).
+ * Keys only on the marker, never on prose.
+ */
+export async function upsertComment(
+  gateway: RepoGateway,
+  input: { number: number; marker: string; body: string },
+): Promise<{ url: string; updated: boolean }> {
+  const existing = await gateway.listComments(input.number);
+  const match = existing.find((c) => c.body.includes(input.marker));
+  if (match) {
+    const updated = await gateway.updateComment(match.id, input.body);
+    return { url: updated.url, updated: true };
+  }
+  const created = await gateway.commentOnPullRequest({ number: input.number, body: input.body });
+  return { url: created.url, updated: false };
+}
+
+/**
+ * Post (or update in place) a verification-coverage status comment on a feature
+ * pull request. The report comes from the coverage read-model (`computeCoverage`).
+ * Informational only — it never approves or merges.
  */
 export function commentCoverageStatus(
   gateway: RepoGateway,
   input: { prNumber: number; report: CoverageReport; options?: CoverageCommentOptions },
-): Promise<{ url: string }> {
-  return gateway.commentOnPullRequest({
+): Promise<{ url: string; updated: boolean }> {
+  return upsertComment(gateway, {
     number: input.prNumber,
+    marker: COVERAGE_MARKER,
     body: renderCoverageComment(input.report, input.options ?? {}),
   });
 }
