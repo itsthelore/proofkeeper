@@ -85,8 +85,8 @@ export {
   ToolArgumentError,
 } from "./agent/tools.js";
 export type { DriveTool, RunCommandArgs, OutputAssertionArgs, RequestArgs, ExpectJsonArgs } from "./agent/tools.js";
-export { observePage, renderObservation } from "./agent/observe.js";
-export type { PageObservation } from "./agent/observe.js";
+export { observePage, renderObservation, createPageMonitor } from "./agent/observe.js";
+export type { PageObservation, PageMonitor } from "./agent/observe.js";
 
 // Reference BYO-model adapter (optional — Anthropic Claude API).
 export {
