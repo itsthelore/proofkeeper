@@ -238,6 +238,23 @@ The merged artifact validates against the real engine (`rac validate` and
 `rac relationships --validate` stay clean), and the emitted `verified_by` edge
 turns the capability from unverified to verified in `proofkeeper coverage`.
 
+The PR carries **readable evidence**: a numbered **step summary** of the driven
+flow (rendered from the recorded actions — "Navigate to …", "Click the button
+'Verify'", "Run `npm test`", "Expect the last command to exit 0") and a
+**trace-replay hint** (`npx playwright show-trace <trace>`), so a reviewer can
+read what was exercised without opening the trace, then re-run the committed
+test to confirm it.
+
+## Failure-learning
+
+Proofkeeper remembers what went wrong. When a drive does not finish or its
+compiled test fails the fidelity gate, the run is recorded against the
+capability through a pluggable `LearningStore` (the default `FileLearningStore`
+keeps one JSON file per capability under `.proofkeeper/learnings/`). The next
+drive of that capability is handed the prior reasons so the model can steer away
+from the same dead ends — turning a flaky or failed attempt into context for a
+better one.
+
 ## Install & develop
 
 ```bash
@@ -279,10 +296,12 @@ injected `RepoGateway`, never a direct commit to the base branch; a **`qa`
 capability → drive → compile → fidelity → run → optionally propose the
 write-back — behind one entry point; a **terminal tool surface** —
 `run_command` / `expect_output` / `expect_exit` so the agent drives a browser
-**and** a terminal, and a CLI capability compiles to a runnable test; and
+**and** a terminal, and a CLI capability compiles to a runnable test;
 **PR-triggered, diff-scoped QA** — a `proofkeeper.config.json` path map that
 scopes a change to the capabilities it touches, drives the unverified ones, and
-posts the evidence as a pull-request comment.
+posts the evidence as a pull-request comment; and **failure-learning + richer PR
+evidence** — failed attempts are remembered and fed into the next drive, and the
+write-back PR carries a readable step summary and a trace-replay hint.
 
 It ships an **optional** reference `ModelClient` adapter for the Anthropic Claude
 API (`ClaudeModelClient`), behind the bring-your-own-model boundary — the model
