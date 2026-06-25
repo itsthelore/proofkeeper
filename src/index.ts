@@ -41,6 +41,10 @@ export type { CodegenCompilerOptions } from "./compiler/compiler.js";
 export { assessFidelity } from "./fidelity/gate.js";
 export type { FidelityOptions, FidelityVerdict } from "./fidelity/gate.js";
 
+// The QA loop behind one command — the DROID spine (Initiatives 1–5 wired).
+export { runQa, selectCapability, defaultGoal } from "./qa/run-qa.js";
+export type { QaDeps, QaOptions, QaResult } from "./qa/run-qa.js";
+
 // Agent loop (Initiatives 2–4 wired) and the BYO-model boundary.
 export { runAgentLoop } from "./agent/loop.js";
 export type { AgentLoopDeps, AgentLoopOptions, AgentLoopResult } from "./agent/loop.js";
