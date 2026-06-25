@@ -4,14 +4,39 @@
  * Built on the Phase-1 {@link runQa} loop: scope the change to capabilities
  * ({@link scopeCapabilities}), then drive each one that still lacks a verifying
  * test, proposing a write-back when the capability declares its corpus artifact.
- * Runs sequentially so the shared compiler/runner output never collides. The
- * caller posts the summary to the feature pull request.
+ * Capabilities are driven **concurrently** with a bounded pool, each isolated in
+ * its own browser context, compiler output directory, and runner output
+ * directory (Ranger's context-isolated sub-agent lesson). Results stay in scoped
+ * order. The caller posts the summary to the feature pull request.
  */
 
 import { runQa, type QaDeps, type QaResult } from "./run-qa.js";
+import { mapPool } from "./concurrency.js";
 import type { Graph } from "../coverage/graph.js";
+import type { Compiler } from "../compiler/types.js";
+import type { Runner } from "../runner/types.js";
+import type { WriteBackProposer } from "../writeback/proposer.js";
+import type { LearningStore } from "../learning/store.js";
 import type { ProofkeeperConfig } from "../scope/config.js";
 import { scopeCapabilities, type ScopedCapability, type ScopeResult } from "../scope/diff-scope.js";
+
+/** Default capabilities driven at once — conservative to bound browser/runner load. */
+export const DEFAULT_SCOPED_CONCURRENCY = 3;
+
+/**
+ * Dependencies for scoped QA. The compiler and runner are minted **per
+ * capability** so concurrent drives write to isolated directories; the drive
+ * seam already isolates the browser context per call.
+ */
+export interface ScopedQaDeps {
+  drive: QaDeps["drive"];
+  /** Mint a compiler whose output directory is isolated to this capability. */
+  makeCompiler(capabilityId: string): Compiler;
+  /** Mint a runner whose output directory is isolated to this capability. */
+  makeRunner(capabilityId: string): Runner;
+  proposer?: WriteBackProposer;
+  learning?: LearningStore;
+}
 
 export interface ScopedQaOptions {
   graph: Graph;
@@ -27,6 +52,8 @@ export interface ScopedQaOptions {
   maxSteps?: number;
   /** When set, the drive emits a Markdown test plan before acting. */
   plan?: boolean;
+  /** Max capabilities driven at once. Defaults to {@link DEFAULT_SCOPED_CONCURRENCY}. */
+  concurrency?: number;
   /** When set, propose a write-back for capabilities that declare an `artifact`. */
   propose?: { baseBranch?: string };
 }
@@ -41,43 +68,54 @@ export interface ScopedCapabilityResult {
 
 export interface ScopedQaResult {
   scope: ScopeResult;
-  /** One entry per unverified scoped capability. */
+  /** One entry per unverified scoped capability, in scoped order. */
   driven: ScopedCapabilityResult[];
 }
 
-export async function runScopedQa(deps: QaDeps, options: ScopedQaOptions): Promise<ScopedQaResult> {
+export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions): Promise<ScopedQaResult> {
   const scope = scopeCapabilities(options.changedPaths, options.config, options.graph);
-  const driven: ScopedCapabilityResult[] = [];
 
-  for (const cap of scope.toVerify) {
-    const startUrl = cap.config.url ?? options.defaultUrl;
-    if (startUrl === undefined) {
-      driven.push({ capability: cap, error: "no start URL — set config.url or pass --url" });
-      continue;
-    }
+  const driven = await mapPool(
+    scope.toVerify,
+    options.concurrency ?? DEFAULT_SCOPED_CONCURRENCY,
+    async (cap): Promise<ScopedCapabilityResult> => {
+      const startUrl = cap.config.url ?? options.defaultUrl;
+      if (startUrl === undefined) {
+        return { capability: cap, error: "no start URL — set config.url or pass --url" };
+      }
 
-    const propose =
-      options.propose && cap.config.artifact !== undefined
-        ? {
-            targetPath: cap.config.artifact,
-            ...(options.propose.baseBranch !== undefined ? { baseBranch: options.propose.baseBranch } : {}),
-          }
-        : undefined;
+      const propose =
+        options.propose && cap.config.artifact !== undefined
+          ? {
+              targetPath: cap.config.artifact,
+              ...(options.propose.baseBranch !== undefined ? { baseBranch: options.propose.baseBranch } : {}),
+            }
+          : undefined;
 
-    const result = await runQa(deps, {
-      graph: options.graph,
-      capabilityId: cap.id,
-      startUrl,
-      ...(cap.config.goal !== undefined ? { goal: cap.config.goal } : {}),
-      // Each capability runs against its own URL.
-      target: { name: options.targetName, baseURL: startUrl },
-      n: options.n,
-      ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
-      ...(options.plan ? { plan: true } : {}),
-      ...(propose ? { propose } : {}),
-    });
-    driven.push({ capability: cap, result });
-  }
+      // Per-capability isolated compiler + runner; the drive seam isolates the browser.
+      const capDeps: QaDeps = {
+        drive: deps.drive,
+        compiler: deps.makeCompiler(cap.id),
+        runner: deps.makeRunner(cap.id),
+        ...(deps.proposer ? { proposer: deps.proposer } : {}),
+        ...(deps.learning ? { learning: deps.learning } : {}),
+      };
+
+      const result = await runQa(capDeps, {
+        graph: options.graph,
+        capabilityId: cap.id,
+        startUrl,
+        ...(cap.config.goal !== undefined ? { goal: cap.config.goal } : {}),
+        // Each capability runs against its own URL.
+        target: { name: options.targetName, baseURL: startUrl },
+        n: options.n,
+        ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
+        ...(options.plan ? { plan: true } : {}),
+        ...(propose ? { propose } : {}),
+      });
+      return { capability: cap, result };
+    },
+  );
 
   return { scope, driven };
 }
