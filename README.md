@@ -163,7 +163,9 @@ push.
 A capability targets a named **environment** (or the `defaultTarget`); an explicit
 `url` still overrides. A restricted environment's `restrictions` and the `auth`
 block (method/provider — never credentials) are threaded into the drive goal so
-the agent respects them (e.g. keeps production read-only).
+the agent respects them (e.g. keeps production read-only). A capability can also
+select a **persona** (role) — `personas: [{ name, testFocus, cannotDo }]` — so it
+is driven as that role, with the role's focus and forbidden actions in the goal.
 
 ```bash
 # In CI on a pull request: diff against the base, scope, drive, and comment.

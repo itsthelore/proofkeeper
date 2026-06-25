@@ -5,11 +5,16 @@
   },
   "defaultTarget": "development",
   "auth": { "method": "email-password", "provider": "WorkOS" },
+  "personas": [
+    { "name": "shopper", "testFocus": ["cart", "checkout"] },
+    { "name": "guest", "testFocus": ["browse"], "cannotDo": ["checkout", "save-payment"] }
+  ],
   "capabilities": [
     {
       "id": "REQ-DEMO-CHECKOUT",
       "paths": ["src/checkout/**", "src/payment/**", "api/checkout/**"],
       "environment": "development",
+      "persona": "shopper",
       "goal": "Complete a checkout with valid payment and confirm the order number shows.",
       "artifact": "examples/demo-corpus/rac/requirements/demo-checkout.md"
     },
