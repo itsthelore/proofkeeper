@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { parseScopedArgs } from "../src/cli.js";
-import { runScopedQa, type ScopedQaDeps } from "../src/qa/run-scoped.js";
+import { runScopedQa, collectFailureSuggestions, type ScopedQaDeps, type ScopedQaResult } from "../src/qa/run-scoped.js";
+import type { ScopedCapability } from "../src/scope/diff-scope.js";
+import type { QaResult } from "../src/qa/run-qa.js";
+import { InMemoryLearningStore } from "../src/learning/store.js";
 import { renderScopedQaComment } from "../src/writeback/comment.js";
 import type { QaDeps } from "../src/qa/run-qa.js";
 import type { Graph } from "../src/coverage/graph.js";
@@ -259,6 +262,30 @@ describe("runScopedQa", () => {
   });
 });
 
+function scopedCap(id: string, title: string): ScopedCapability {
+  return { id, title, config: { id, paths: ["x"] }, verified: false, matchedPaths: ["x"] };
+}
+
+describe("collectFailureSuggestions", () => {
+  it("returns recorded failure reasons for failed or errored capabilities only", async () => {
+    const learning = new InMemoryLearningStore();
+    await learning.recordFailure({ capabilityId: "REQ-X", reason: "the Verify button moved" });
+    await learning.recordFailure({ capabilityId: "REQ-Y", reason: "unstable: 1/3 re-runs green" });
+    const result: ScopedQaResult = {
+      scope: { scoped: [], toVerify: [], unknown: [] },
+      driven: [
+        { capability: scopedCap("REQ-X", "X"), error: "no start URL" },
+        { capability: scopedCap("REQ-Y", "Y"), result: { verified: false } as unknown as QaResult },
+        { capability: scopedCap("REQ-Z", "Z"), result: { verified: true } as unknown as QaResult },
+      ],
+    };
+    expect(await collectFailureSuggestions(result, learning)).toEqual([
+      { id: "REQ-X", title: "X", reasons: ["the Verify button moved"] },
+      { id: "REQ-Y", title: "Y", reasons: ["unstable: 1/3 re-runs green"] },
+    ]);
+  });
+});
+
 describe("renderScopedQaComment", () => {
   it("summarises stable, unstable, error, already-verified, and unknown rows", () => {
     const body = renderScopedQaComment({
@@ -278,6 +305,20 @@ describe("renderScopedQaComment", () => {
     expect(body).toContain("Already verified, not re-driven:");
     expect(body).toContain("REQ-A — Alpha");
     expect(body).toContain("Config ids not found as capabilities in the graph: REQ-Q");
+  });
+
+  it("renders the known failure modes when failure suggestions are present", () => {
+    const body = renderScopedQaComment({
+      changedCount: 1,
+      driven: [{ id: "REQ-C", title: "Gamma", stable: false }],
+      alreadyVerified: [],
+      unknown: [],
+      failureSuggestions: [{ id: "REQ-C", title: "Gamma", reasons: ["the Verify button moved", "unstable: 1/3"] }],
+    });
+    expect(body).toContain("Known failure modes:");
+    expect(body).toContain("**REQ-C** — Gamma:");
+    expect(body).toContain("- the Verify button moved");
+    expect(body).toContain("- unstable: 1/3");
   });
 });
 
