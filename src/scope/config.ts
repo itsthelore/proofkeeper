@@ -14,16 +14,44 @@ export interface CapabilityConfig {
   id: string;
   /** Source-path globs; a changed file matching any of these scopes this capability. */
   paths: string[];
-  /** Optional start URL for the drive (else the command's `--url` default). */
+  /** Optional start URL for the drive (overrides any environment). */
   url?: string;
+  /** Optional named environment to target (else the config's default target). */
+  environment?: string;
   /** Optional goal for the model (else derived from the capability). */
   goal?: string;
   /** Optional corpus artifact path to propose the write-back to. */
   artifact?: string;
 }
 
+/** A named environment the drive can target. */
+export interface EnvironmentConfig {
+  url: string;
+  /** Human-readable directives the drive must respect (e.g. "read-only; never create data"). */
+  restrictions?: string[];
+}
+
+/** How the product authenticates — described, never the credentials themselves. */
+export interface AuthConfig {
+  method: string;
+  provider?: string;
+}
+
 export interface ProofkeeperConfig {
   capabilities: CapabilityConfig[];
+  /** Named environments (e.g. development, production). */
+  environments?: Record<string, EnvironmentConfig>;
+  /** The default environment name used when a capability names none. */
+  defaultTarget?: string;
+  /** How the product authenticates. */
+  auth?: AuthConfig;
+}
+
+/** A capability's resolved run target. */
+export interface ResolvedTarget {
+  name: string;
+  url: string;
+  restrictions: string[];
 }
 
 /** Raised when the config is not a recognizable shape. */
@@ -50,9 +78,39 @@ function parseCapability(raw: unknown, index: number): CapabilityConfig {
   }
   const cap: CapabilityConfig = { id, paths: paths as string[] };
   if (typeof raw["url"] === "string") cap.url = raw["url"];
+  if (typeof raw["environment"] === "string") cap.environment = raw["environment"];
   if (typeof raw["goal"] === "string") cap.goal = raw["goal"];
   if (typeof raw["artifact"] === "string") cap.artifact = raw["artifact"];
   return cap;
+}
+
+function parseEnvironments(raw: unknown): Record<string, EnvironmentConfig> {
+  if (!isObject(raw)) throw new ConfigParseError("`environments` must be an object");
+  const out: Record<string, EnvironmentConfig> = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (!isObject(value) || typeof value["url"] !== "string") {
+      throw new ConfigParseError(`environment '${name}' must have a string url`);
+    }
+    const env: EnvironmentConfig = { url: value["url"] };
+    const restrictions = value["restrictions"];
+    if (restrictions !== undefined) {
+      if (!Array.isArray(restrictions) || !restrictions.every((r) => typeof r === "string")) {
+        throw new ConfigParseError(`environment '${name}'.restrictions must be an array of strings`);
+      }
+      env.restrictions = restrictions as string[];
+    }
+    out[name] = env;
+  }
+  return out;
+}
+
+function parseAuth(raw: unknown): AuthConfig {
+  if (!isObject(raw) || typeof raw["method"] !== "string") {
+    throw new ConfigParseError("`auth` must have a string method");
+  }
+  const auth: AuthConfig = { method: raw["method"] };
+  if (typeof raw["provider"] === "string") auth.provider = raw["provider"];
+  return auth;
 }
 
 /** Parse a Proofkeeper config from JSON. Strict on the shape scoping depends on. */
@@ -66,5 +124,39 @@ export function parseConfig(json: string): ProofkeeperConfig {
   if (!isObject(raw) || !Array.isArray(raw["capabilities"])) {
     throw new ConfigParseError("config must be an object with a `capabilities` array");
   }
-  return { capabilities: raw["capabilities"].map(parseCapability) };
+  const config: ProofkeeperConfig = { capabilities: raw["capabilities"].map(parseCapability) };
+  if (raw["environments"] !== undefined) config.environments = parseEnvironments(raw["environments"]);
+  if (typeof raw["defaultTarget"] === "string") config.defaultTarget = raw["defaultTarget"];
+  if (raw["auth"] !== undefined) config.auth = parseAuth(raw["auth"]);
+  return config;
+}
+
+/**
+ * Resolve a capability's run target: an explicit `cap.url` wins; otherwise the
+ * environment named by `cap.environment ?? config.defaultTarget`; otherwise the
+ * caller's fallback URL. Returns undefined when no URL can be determined.
+ */
+export function resolveTarget(
+  config: ProofkeeperConfig,
+  cap: CapabilityConfig,
+  opts: { fallbackUrl?: string; defaultName: string },
+): ResolvedTarget | undefined {
+  if (cap.url !== undefined) {
+    return { name: opts.defaultName, url: cap.url, restrictions: [] };
+  }
+  const envName = cap.environment ?? config.defaultTarget;
+  const env = envName !== undefined ? config.environments?.[envName] : undefined;
+  if (env) {
+    return { name: envName!, url: env.url, restrictions: env.restrictions ?? [] };
+  }
+  if (opts.fallbackUrl !== undefined) {
+    return { name: opts.defaultName, url: opts.fallbackUrl, restrictions: [] };
+  }
+  return undefined;
+}
+
+/** A one-line auth context for the drive goal, or undefined when no auth is configured. */
+export function authContext(config: ProofkeeperConfig): string | undefined {
+  if (!config.auth) return undefined;
+  return `Authentication: ${config.auth.method}${config.auth.provider ? ` via ${config.auth.provider}` : ""}.`;
 }
