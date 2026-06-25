@@ -297,6 +297,13 @@ drive of that capability is handed the prior reasons so the model can steer away
 from the same dead ends — turning a flaky or failed attempt into context for a
 better one.
 
+The config's `failureLearning` strategy controls how that catalog is *surfaced*.
+The default `suggest_in_report` adds a "Known failure modes" section to the
+scoped-QA pull-request comment, listing the recorded reasons for each touched
+capability that failed — so a reviewer sees them. The repo-writing strategies
+(`auto_commit`, `open_a_pr`) are recognized but deferred behind the propose-only,
+human-reviewed boundary (ADR-065).
+
 ## Install & develop
 
 ```bash
