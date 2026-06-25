@@ -29,6 +29,8 @@ export interface BuildProposalInput {
   baseBranch?: string;
   /** Prefix for the generated head branch. Defaults to `proofkeeper/verified-by`. */
   branchPrefix?: string;
+  /** Readable step summary of the driven flow, shown in the PR body. */
+  steps?: string[];
 }
 
 export interface WriteBackProposal {
@@ -54,11 +56,12 @@ function proposalBody(input: {
   capabilityId: string;
   targetPath: string;
   links: VerificationLink[];
+  steps?: string[];
 }): string {
   const items = input.links
     .map((l) => `- \`${l.test}\`${l.trace ? ` (trace: \`${l.trace}\`)` : ""}`)
     .join("\n");
-  return [
+  const lines = [
     `Proofkeeper proposes recording verification for **${input.capabilityId}**.`,
     "",
     `It adds a \`## Verified By\` section to \`${input.targetPath}\` linking the`,
@@ -71,11 +74,22 @@ function proposalBody(input: {
     "",
     "Proposed links:",
     items,
+  ];
+  if (input.steps && input.steps.length > 0) {
+    lines.push("", "Steps exercised:");
+    input.steps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
+  }
+  const trace = input.links.find((l) => l.trace)?.trace;
+  if (trace) {
+    lines.push("", `Replay the trace locally: \`npx playwright show-trace ${trace}\``);
+  }
+  lines.push(
     "",
     "This is a proposal for human review (ADR-065). Proofkeeper produces and runs",
     "the evidence; a reviewer accepts the link. Merge only after confirming the",
     "referenced test and trace.",
-  ].join("\n");
+  );
+  return lines.join("\n");
 }
 
 /** Build a write-back proposal (does not touch any repo). */

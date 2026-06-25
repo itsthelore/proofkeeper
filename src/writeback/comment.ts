@@ -35,6 +35,8 @@ export function renderWriteBackComment(input: {
   capabilityId: string;
   links: VerificationLink[];
   fidelity?: FidelitySummary;
+  /** Readable step summary of the driven flow. */
+  steps?: string[];
 }): string {
   const lines = [
     `Proofkeeper recorded verification for **${input.capabilityId}**.`,
@@ -42,6 +44,14 @@ export function renderWriteBackComment(input: {
     "Linked evidence:",
     ...input.links.map(linkLine),
   ];
+  if (input.steps && input.steps.length > 0) {
+    lines.push("", "Steps exercised:");
+    input.steps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
+  }
+  const trace = input.links.find((l) => l.trace)?.trace;
+  if (trace) {
+    lines.push("", `Replay the trace locally: \`npx playwright show-trace ${trace}\``);
+  }
   if (input.fidelity) {
     const f = input.fidelity;
     lines.push(

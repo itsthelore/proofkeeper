@@ -43,6 +43,8 @@ export interface WriteBackInput {
   branchPrefix?: string;
   /** When provided, a confirmation comment with the fidelity result is posted on the PR. */
   fidelity?: FidelitySummary;
+  /** Readable step summary of the driven flow, shown in the PR body and comment. */
+  steps?: string[];
 }
 
 export type WriteBackResult =
@@ -75,6 +77,7 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
       links: input.links,
       baseBranch,
       ...(input.branchPrefix !== undefined ? { branchPrefix: input.branchPrefix } : {}),
+      ...(input.steps !== undefined ? { steps: input.steps } : {}),
     });
 
     if (!proposal.changed) {
@@ -112,6 +115,7 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
           capabilityId: input.capabilityId,
           links: input.links,
           fidelity: input.fidelity,
+          ...(input.steps !== undefined ? { steps: input.steps } : {}),
         }),
       });
       result.commentUrl = comment.url;
