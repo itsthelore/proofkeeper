@@ -22,6 +22,7 @@ import { AutonomousDriver, type DriveOptions, type DriveResult } from "./agent/d
 import type { ModelClient } from "./agent/model.js";
 import { ClaudeModelClient } from "./agent/adapters/claude.js";
 import { CodegenCompiler } from "./compiler/compiler.js";
+import { FileLearningStore } from "./learning/store.js";
 import { PlaywrightRunner } from "./runner/playwright-runner.js";
 import type { RunTarget } from "./runner/types.js";
 import { GitHubRestGateway } from "./writeback/gateways/github-rest.js";
@@ -332,6 +333,7 @@ async function runQaCommand(argv: string[]): Promise<number> {
     drive: browserDrive(model),
     compiler: new CodegenCompiler({ outDir: args.outDir }),
     runner: new PlaywrightRunner(),
+    learning: new FileLearningStore(),
     ...(proposer ? { proposer } : {}),
   };
 
@@ -524,6 +526,7 @@ async function runScopedCommand(argv: string[]): Promise<number> {
     drive: browserDrive(model),
     compiler: new CodegenCompiler({ outDir: args.outDir }),
     runner: new PlaywrightRunner(),
+    learning: new FileLearningStore(),
     ...(proposer ? { proposer } : {}),
   };
 

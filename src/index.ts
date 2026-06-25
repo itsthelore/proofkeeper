@@ -38,6 +38,11 @@ export { CodegenCompiler, NotImplementedCompiler } from "./compiler/compiler.js"
 export type { CodegenCompilerOptions } from "./compiler/compiler.js";
 export { runCommand, evalOutputMatch } from "./compiler/terminal.js";
 export type { CommandResult, OutputAssertion } from "./compiler/terminal.js";
+export { summarizeSession } from "./compiler/summary.js";
+
+// Failure-learning — remember failed attempts, steer the next drive.
+export { FileLearningStore, InMemoryLearningStore } from "./learning/store.js";
+export type { LearningStore, FailureRecord } from "./learning/store.js";
 
 // Fidelity gate (Initiative 3 — the moat's acceptance bar).
 export { assessFidelity } from "./fidelity/gate.js";

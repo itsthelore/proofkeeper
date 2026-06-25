@@ -17,11 +17,13 @@
 import type { Graph } from "../coverage/graph.js";
 import { computeCoverage, type CapabilityCoverage } from "../coverage/model.js";
 import type { Compiler } from "../compiler/types.js";
+import { summarizeSession } from "../compiler/summary.js";
 import type { Runner, RunTarget } from "../runner/types.js";
 import { runAgentLoop, type AgentLoopResult } from "../agent/loop.js";
 import type { DriveOptions, DriveResult } from "../agent/drive.js";
 import { linksFromResults } from "../writeback/proposal.js";
 import type { WriteBackProposer, WriteBackResult } from "../writeback/proposer.js";
+import type { LearningStore } from "../learning/store.js";
 
 /**
  * Pick the capability to verify: the named one if given (verified or not — a
@@ -64,6 +66,8 @@ export interface QaDeps {
   runner: Runner;
   /** Optional: when present and the test is stable, propose the write-back PR. */
   proposer?: WriteBackProposer;
+  /** Optional: remembers failed attempts and feeds prior reasons into the drive. */
+  learning?: LearningStore;
 }
 
 export interface QaOptions {
@@ -102,13 +106,18 @@ export interface QaResult {
  */
 export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult> {
   const capability = selectCapability(options.graph, options.capabilityId);
+  const goal = options.goal ?? defaultGoal(capability);
+
+  // Feed reasons from earlier failed attempts into the drive (failure-learning).
+  const prior = deps.learning ? await deps.learning.priorFailures(capability.id) : [];
 
   const driveOptions: DriveOptions = {
     capabilityId: capability.id,
     title: `verify ${capability.title}`,
     startUrl: options.startUrl,
-    goal: options.goal ?? defaultGoal(capability),
+    goal,
     ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
+    ...(prior.length > 0 ? { priorFailures: prior.map((f) => f.reason) } : {}),
   };
   const drive = await deps.drive(driveOptions);
 
@@ -125,17 +134,32 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
   const result: QaResult = { capability, drive, loop, verified };
 
   // Propose the write-back only for a stable test (ADR-065: a human reviews it).
+  // The proposal carries the readable step summary so a reviewer can read the
+  // driven flow without opening the trace.
   if (verified && deps.proposer && options.propose) {
     result.writeBack = await deps.proposer.propose({
       capabilityId: capability.id,
       targetPath: options.propose.targetPath,
       links: linksFromResults(loop.candidate, loop.runResults),
+      steps: summarizeSession(drive.session),
       ...(options.propose.baseBranch !== undefined ? { baseBranch: options.propose.baseBranch } : {}),
       fidelity: {
         attempts: loop.verdict.attempts,
         passed: loop.verdict.passed,
         stable: loop.verdict.stable,
       },
+    });
+  }
+
+  // Remember a failure so the next attempt avoids it (failure-learning).
+  if (deps.learning && (!verified || !drive.finished)) {
+    await deps.learning.recordFailure({
+      capabilityId: capability.id,
+      goal,
+      reason: !drive.finished
+        ? `drive did not finish within the step budget (${drive.steps} steps)`
+        : `compiled test was unstable: ${loop.verdict.passed}/${loop.verdict.attempts} re-runs green`,
+      steps: drive.steps,
     });
   }
 
