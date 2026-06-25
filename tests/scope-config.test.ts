@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseConfig, ConfigParseError, resolveTarget, authContext } from "../src/scope/config.js";
+import { parseConfig, ConfigParseError, resolveTarget, authContext, personaContext } from "../src/scope/config.js";
 
 describe("parseConfig", () => {
   it("parses capabilities with paths and optional fields", () => {
@@ -120,5 +120,53 @@ describe("authContext", () => {
     expect(authContext(CFG)).toBe("Authentication: oauth via Okta.");
     const noAuth = parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }] }));
     expect(authContext(noAuth)).toBeUndefined();
+  });
+});
+
+const PERSONA_CFG = parseConfig(
+  JSON.stringify({
+    capabilities: [
+      { id: "REQ-ADMIN", paths: ["x"], url: "http://x/", persona: "admin" },
+      { id: "REQ-NONE", paths: ["y"], url: "http://y/" },
+      { id: "REQ-BAD", paths: ["z"], url: "http://z/", persona: "ghost" },
+    ],
+    personas: [
+      { name: "admin", testFocus: ["settings", "billing"], cannotDo: [] },
+      { name: "viewer", testFocus: ["dashboards"], cannotDo: ["edit-settings", "manage-users"] },
+    ],
+  }),
+);
+
+describe("personaContext", () => {
+  const cap = (id: string) => PERSONA_CFG.capabilities.find((c) => c.id === id)!;
+
+  it("returns role context with focus and forbidden actions", () => {
+    expect(personaContext(PERSONA_CFG, cap("REQ-ADMIN"))).toBe(
+      "Act as the admin persona. Focus on: settings, billing.",
+    );
+    const viewerCfg = parseConfig(
+      JSON.stringify({
+        capabilities: [{ id: "V", paths: ["x"], url: "http://x/", persona: "viewer" }],
+        personas: [{ name: "viewer", testFocus: ["dashboards"], cannotDo: ["edit-settings"] }],
+      }),
+    );
+    expect(personaContext(viewerCfg, viewerCfg.capabilities[0]!)).toBe(
+      "Act as the viewer persona. Focus on: dashboards. Do not: edit-settings.",
+    );
+  });
+
+  it("returns undefined when the capability names no persona", () => {
+    expect(personaContext(PERSONA_CFG, cap("REQ-NONE"))).toBeUndefined();
+  });
+
+  it("throws when the named persona is not defined", () => {
+    expect(() => personaContext(PERSONA_CFG, cap("REQ-BAD"))).toThrow(/undefined persona 'ghost'/);
+  });
+
+  it("rejects a malformed persona block at parse time", () => {
+    expect(() => parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], personas: [{}] }))).toThrow(/name/);
+    expect(() =>
+      parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], personas: [{ name: "p", testFocus: "x" }] })),
+    ).toThrow(/testFocus/);
   });
 });
