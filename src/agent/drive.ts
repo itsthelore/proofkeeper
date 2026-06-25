@@ -19,7 +19,15 @@ import type { RecordedSession } from "../compiler/actions.js";
 import { Recorder } from "../compiler/recorder.js";
 import { observePage, renderObservation } from "./observe.js";
 import type { ModelClient, ModelRequest, ToolCall } from "./model.js";
-import { DRIVE_TOOLS, LOCATOR_GUIDANCE, parseLocator } from "./tools.js";
+import {
+  DRIVE_TOOLS,
+  LOCATOR_GUIDANCE,
+  TERMINAL_GUIDANCE,
+  parseLocator,
+  parseRunCommand,
+  parseExpectOutput,
+  parseExpectExit,
+} from "./tools.js";
 
 const DEFAULT_MAX_STEPS = 12;
 
@@ -50,19 +58,24 @@ interface Dispatch {
   ok: boolean;
   error?: string;
   finished?: boolean;
+  /** Extra observation to feed back to the model (e.g. a command's output). */
+  detail?: string;
 }
 
 function systemPrompt(goal: string): string {
   return [
-    "You are Proofkeeper's autonomous QA agent. You drive a web product like a",
-    "developer to verify a capability, using only the provided tools. Work in",
-    "small steps: observe the page, take an action, observe again. Assert every",
-    "observable outcome with expect_text / expect_visible — those become the",
-    "committed test. When the capability is driven and asserted, call finish.",
+    "You are Proofkeeper's autonomous QA agent. You drive a product like a",
+    "developer to verify a capability, using only the provided tools — a browser",
+    "and a terminal. Work in small steps: observe, take an action, observe again.",
+    "Assert every observable outcome (expect_text / expect_visible for the page,",
+    "expect_output / expect_exit for the terminal) — those become the committed",
+    "test. When the capability is driven and asserted, call finish.",
     "",
     `Goal: ${goal}`,
     "",
     LOCATOR_GUIDANCE,
+    "",
+    TERMINAL_GUIDANCE,
   ].join("\n");
 }
 
@@ -90,6 +103,22 @@ async function dispatch(recorder: Recorder, call: ToolCall): Promise<Dispatch> {
         return { ok: true };
       case "expect_visible":
         await recorder.expectVisible(parseLocator(call.arguments));
+        return { ok: true };
+      case "run_command": {
+        const { command, cwd } = parseRunCommand(call.arguments);
+        const r = await recorder.run(command, cwd !== undefined ? { cwd } : {});
+        const parts = [
+          r.stdout.trim() && `stdout: ${r.stdout.trim()}`,
+          r.stderr.trim() && `stderr: ${r.stderr.trim()}`,
+          `exit: ${r.code}`,
+        ].filter(Boolean);
+        return { ok: true, detail: `$ ${command}\n${parts.join("\n")}` };
+      }
+      case "expect_output":
+        await recorder.expectOutput(parseExpectOutput(call.arguments));
+        return { ok: true };
+      case "expect_exit":
+        await recorder.expectExit(parseExpectExit(call.arguments));
         return { ok: true };
       case "finish":
         return { ok: true, finished: true };
@@ -154,7 +183,11 @@ export class AutonomousDriver {
           stop = true;
           break;
         }
-        outcomes.push(result.ok ? `ok: ${call.name}` : `ERROR ${call.name}: ${result.error}`);
+        outcomes.push(
+          result.ok
+            ? `ok: ${call.name}${result.detail ? `\n${result.detail}` : ""}`
+            : `ERROR ${call.name}: ${result.error}`,
+        );
       }
       if (stop) break;
 

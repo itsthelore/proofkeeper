@@ -70,6 +70,40 @@ export const DRIVE_TOOLS: readonly DriveTool[] = [
   },
   { name: "expect_visible", description: "Assert an element is visible.", inputSchema: withLocator() },
   {
+    name: "run_command",
+    description: "Run a shell command in the product's terminal. Its result is recorded for assertions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        command: { type: "string", description: "The shell command to run" },
+        cwd: { type: "string", description: "Working directory (optional)" },
+      },
+      required: ["command"],
+    },
+  },
+  {
+    name: "expect_output",
+    description: "Assert the last command's stdout/stderr — record an observable outcome.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        match: { type: "string", enum: ["exact", "contains", "regex"] },
+        stream: { type: "string", enum: ["stdout", "stderr"] },
+        value: { type: "string", description: "Expected value (exact text, substring, or regex source)" },
+      },
+      required: ["match", "stream", "value"],
+    },
+  },
+  {
+    name: "expect_exit",
+    description: "Assert the last command's exit code.",
+    inputSchema: {
+      type: "object",
+      properties: { code: { type: "number", description: "Expected exit code, e.g. 0" } },
+      required: ["code"],
+    },
+  },
+  {
     name: "finish",
     description: "End the session: the capability has been driven and asserted.",
     inputSchema: { type: "object", properties: {} },
@@ -85,6 +119,13 @@ export const LOCATOR_GUIDANCE =
   "role needs { role, name? }, testId needs { testId }, text needs { text }, " +
   "label needs { label }, css needs { selector }. Prefer role, testId, or text over css. " +
   "A locator may be passed as the `locator` field or inline on the arguments.";
+
+/** Guidance for the terminal tools, folded into the system prompt. */
+export const TERMINAL_GUIDANCE =
+  "You also have a terminal. run_command runs a shell command and records its result; " +
+  "expect_output asserts the last command's stdout or stderr (match: exact|contains|regex), " +
+  "and expect_exit asserts its exit code. Run a command, read its result, then assert the " +
+  "outcomes you observe — those assertions become the committed test.";
 
 /** Raised when a model's locator arguments are not a recognizable strategy. */
 export class ToolArgumentError extends Error {
@@ -129,4 +170,46 @@ export function parseLocator(args: Record<string, unknown>): Locator {
     default:
       throw new ToolArgumentError(`unknown locator strategy: ${JSON.stringify(strategy)}`);
   }
+}
+
+/** Arguments for the `run_command` tool. */
+export interface RunCommandArgs {
+  command: string;
+  cwd?: string;
+}
+
+/** Parse a `run_command` tool call's arguments. */
+export function parseRunCommand(args: Record<string, unknown>): RunCommandArgs {
+  const command = str(args["command"], "command");
+  const cwd = args["cwd"];
+  return cwd === undefined || cwd === null ? { command } : { command, cwd: str(cwd, "cwd") };
+}
+
+/** Arguments for the `expect_output` tool. */
+export interface OutputAssertionArgs {
+  match: "exact" | "contains" | "regex";
+  stream: "stdout" | "stderr";
+  value: string;
+}
+
+/** Parse an `expect_output` tool call's arguments. */
+export function parseExpectOutput(args: Record<string, unknown>): OutputAssertionArgs {
+  const match = str(args["match"], "match");
+  if (match !== "exact" && match !== "contains" && match !== "regex") {
+    throw new ToolArgumentError(`unknown match mode: ${JSON.stringify(match)}`);
+  }
+  const stream = str(args["stream"], "stream");
+  if (stream !== "stdout" && stream !== "stderr") {
+    throw new ToolArgumentError(`unknown stream: ${JSON.stringify(stream)}`);
+  }
+  return { match, stream, value: str(args["value"], "value") };
+}
+
+/** Parse an `expect_exit` tool call's arguments. */
+export function parseExpectExit(args: Record<string, unknown>): number {
+  const code = args["code"];
+  if (typeof code !== "number" || !Number.isInteger(code)) {
+    throw new ToolArgumentError(`expected an integer exit code, got ${JSON.stringify(code)}`);
+  }
+  return code;
 }

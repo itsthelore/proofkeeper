@@ -36,6 +36,8 @@ export type { RecorderOptions } from "./compiler/recorder.js";
 export type { Compiler, CandidateTest } from "./compiler/types.js";
 export { CodegenCompiler, NotImplementedCompiler } from "./compiler/compiler.js";
 export type { CodegenCompilerOptions } from "./compiler/compiler.js";
+export { runCommand, evalOutputMatch } from "./compiler/terminal.js";
+export type { CommandResult, OutputAssertion } from "./compiler/terminal.js";
 
 // Fidelity gate (Initiative 3 — the moat's acceptance bar).
 export { assessFidelity } from "./fidelity/gate.js";
@@ -51,8 +53,17 @@ export type { AgentLoopDeps, AgentLoopOptions, AgentLoopResult } from "./agent/l
 export type { ModelClient, ModelRequest, ModelResponse, ToolCall } from "./agent/model.js";
 export { AutonomousDriver, runDrive } from "./agent/drive.js";
 export type { DriveOptions, DriveResult } from "./agent/drive.js";
-export { DRIVE_TOOLS, LOCATOR_GUIDANCE, parseLocator, ToolArgumentError } from "./agent/tools.js";
-export type { DriveTool } from "./agent/tools.js";
+export {
+  DRIVE_TOOLS,
+  LOCATOR_GUIDANCE,
+  TERMINAL_GUIDANCE,
+  parseLocator,
+  parseRunCommand,
+  parseExpectOutput,
+  parseExpectExit,
+  ToolArgumentError,
+} from "./agent/tools.js";
+export type { DriveTool, RunCommandArgs, OutputAssertionArgs } from "./agent/tools.js";
 export { observePage, renderObservation } from "./agent/observe.js";
 export type { PageObservation } from "./agent/observe.js";
 
