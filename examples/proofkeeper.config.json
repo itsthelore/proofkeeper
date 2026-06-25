@@ -1,9 +1,15 @@
 {
+  "environments": {
+    "development": { "url": "http://localhost:3000" },
+    "production": { "url": "https://shop.example.com", "restrictions": ["read-only", "never create data"] }
+  },
+  "defaultTarget": "development",
+  "auth": { "method": "email-password", "provider": "WorkOS" },
   "capabilities": [
     {
       "id": "REQ-DEMO-CHECKOUT",
       "paths": ["src/checkout/**", "src/payment/**", "api/checkout/**"],
-      "url": "http://localhost:3000/checkout",
+      "environment": "development",
       "goal": "Complete a checkout with valid payment and confirm the order number shows.",
       "artifact": "examples/demo-corpus/rac/requirements/demo-checkout.md"
     },

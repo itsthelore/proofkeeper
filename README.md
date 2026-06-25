@@ -143,16 +143,27 @@ push.
 ```jsonc
 // proofkeeper.config.json
 {
+  "environments": {
+    "development": { "url": "http://localhost:3000" },
+    "production": { "url": "https://shop.example.com", "restrictions": ["read-only", "never create data"] }
+  },
+  "defaultTarget": "development",
+  "auth": { "method": "email-password", "provider": "WorkOS" },
   "capabilities": [
     {
       "id": "REQ-DEMO-CHECKOUT",
       "paths": ["src/checkout/**", "api/checkout/**"],
-      "url": "http://localhost:3000/checkout",
+      "environment": "development",
       "artifact": "rac/requirements/demo-checkout.md"
     }
   ]
 }
 ```
+
+A capability targets a named **environment** (or the `defaultTarget`); an explicit
+`url` still overrides. A restricted environment's `restrictions` and the `auth`
+block (method/provider — never credentials) are threaded into the drive goal so
+the agent respects them (e.g. keeps production read-only).
 
 ```bash
 # In CI on a pull request: diff against the base, scope, drive, and comment.
