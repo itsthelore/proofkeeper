@@ -1,9 +1,11 @@
 # Lore Proofkeeper
 
-> Autonomous verification for the Lore family. Proofkeeper *keeps the proof* —
-> the stable test plus its replayable trace — so an agent's work is verified by
-> reading the committed test and its trace in the pull request, not by a local
-> run.
+> The **open-source autonomous-QA DROID** for the Lore family — browser **and**
+> terminal, bring-your-own-model, evidence-in-PR — bounded to verification.
+> Proofkeeper *keeps the proof*: the stable test plus its replayable trace, so an
+> agent's work is verified by reading and re-running the committed test in the
+> pull request, not by a local run. (Code review and codegen are explicit
+> non-goals — they belong to sibling products; see [The boundary](#the-boundary).)
 
 **Status: v0.0.1 prototype.** The full drive→compile→fidelity→run pipeline now
 works end-to-end. The coverage read-model (below) runs against a real corpus
@@ -23,7 +25,11 @@ human-reviewed pull request (never a direct commit to the base branch) — the
 merged artifact validates clean against the real engine (`rac validate` +
 `rac relationships --validate`), and the resulting `verified_by` edge flips the
 capability from unverified to verified in the coverage report (see
-[Scope](#v001-scope)).
+[Scope](#v001-scope)). On top of this, a single **`qa` command** runs the whole
+loop, the drive has a **terminal** as well as a browser, **PR-triggered QA**
+scopes to a change and comments the evidence, and **failed attempts are
+remembered** to steer the next run — the open-source autonomous-QA DROID,
+bounded to verification.
 
 > **Naming.** The product is **Proofkeeper**; the display brand is **Lore
 > Proofkeeper** where disambiguation helps. It is unrelated to Epic Games'
@@ -62,9 +68,15 @@ This boundary is deliberate and load-bearing:
 - **Proofkeeper owns the runtime and the evidence** (browsers, runs, traces);
   **Lore owns the knowledge.** In one line: *Lore records and reports
   verification; Proofkeeper produces and runs the evidence.*
+- **Verification only — not code review or codegen.** Proofkeeper "produces
+  verification evidence and nothing else" (ADR-083 Non-Goals). DROID-style PR
+  code review is a Watchkeeper (ADR-043) / Gatekeeper (ADR-049) concern, not
+  Proofkeeper's; it is deliberately out of scope here.
 
 These follow the recorded Lore decisions ADR-083 (product identity and
-boundary) and ADR-084 (the `verified_by` external-target relationship).
+boundary) and ADR-084 (the `verified_by` external-target relationship). The
+DROID-parity build shape is recorded in
+[`docs/roadmap/os-droid-build.md`](./docs/roadmap/os-droid-build.md).
 
 ## The coverage signal
 
