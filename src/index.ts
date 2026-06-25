@@ -47,6 +47,15 @@ export type { FidelityOptions, FidelityVerdict } from "./fidelity/gate.js";
 export { runQa, selectCapability, defaultGoal } from "./qa/run-qa.js";
 export type { QaDeps, QaOptions, QaResult } from "./qa/run-qa.js";
 
+// PR-triggered, diff-scoped QA.
+export { runScopedQa } from "./qa/run-scoped.js";
+export type { ScopedQaOptions, ScopedQaResult, ScopedCapabilityResult } from "./qa/run-scoped.js";
+export { scopeCapabilities } from "./scope/diff-scope.js";
+export type { ScopeResult, ScopedCapability } from "./scope/diff-scope.js";
+export { parseConfig, ConfigParseError } from "./scope/config.js";
+export type { ProofkeeperConfig, CapabilityConfig } from "./scope/config.js";
+export { globToRegExp, matchesAnyGlob } from "./scope/glob.js";
+
 // Agent loop (Initiatives 2–4 wired) and the BYO-model boundary.
 export { runAgentLoop } from "./agent/loop.js";
 export type { AgentLoopDeps, AgentLoopOptions, AgentLoopResult } from "./agent/loop.js";
@@ -89,8 +98,8 @@ export type { VerificationLink, VerifiedByProposal } from "./writeback/verified-
 export { mergeVerifiedBy } from "./writeback/merge.js";
 export { buildProposal, linksFromResults } from "./writeback/proposal.js";
 export type { BuildProposalInput, WriteBackProposal } from "./writeback/proposal.js";
-export { renderWriteBackComment, renderCoverageComment, commentCoverageStatus } from "./writeback/comment.js";
-export type { FidelitySummary, CoverageCommentOptions } from "./writeback/comment.js";
+export { renderWriteBackComment, renderCoverageComment, renderScopedQaComment, commentCoverageStatus } from "./writeback/comment.js";
+export type { FidelitySummary, CoverageCommentOptions, ScopedQaCommentInput, ScopedQaCommentRow } from "./writeback/comment.js";
 export { GitHubWriteBackProposer } from "./writeback/proposer.js";
 export type {
   RepoGateway,

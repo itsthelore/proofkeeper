@@ -88,6 +88,54 @@ export function renderCoverageComment(report: CoverageReport, options: CoverageC
   return lines.join("\n");
 }
 
+/** One driven capability's outcome, as summarized in the scoped-QA comment. */
+export interface ScopedQaCommentRow {
+  id: string;
+  title: string;
+  stable?: boolean;
+  writeBackUrl?: string;
+  /** Set when the capability could not be driven. */
+  error?: string;
+}
+
+export interface ScopedQaCommentInput {
+  changedCount: number;
+  driven: ScopedQaCommentRow[];
+  /** Scoped capabilities already verified — not re-driven. */
+  alreadyVerified: { id: string; title: string }[];
+  /** Config ids that matched the diff but are not capability nodes. */
+  unknown: string[];
+}
+
+/** Scoped-QA evidence comment for the feature PR that triggered the run. */
+export function renderScopedQaComment(input: ScopedQaCommentInput): string {
+  const lines = [
+    `## Proofkeeper QA — ${input.changedCount} changed file(s)`,
+    "",
+    input.driven.length > 0
+      ? `Drove ${input.driven.length} capability(ies) this change touched:`
+      : "No unverified capabilities were touched by this change.",
+  ];
+  for (const r of input.driven) {
+    if (r.error) {
+      lines.push(`- ⚠️ **${r.id}** — ${r.title}: ${r.error}`);
+    } else if (r.stable) {
+      lines.push(`- ✅ **${r.id}** — ${r.title}: stable${r.writeBackUrl ? ` — proposed ${r.writeBackUrl}` : ""}`);
+    } else {
+      lines.push(`- ❌ **${r.id}** — ${r.title}: unstable (quarantined)`);
+    }
+  }
+  if (input.alreadyVerified.length > 0) {
+    lines.push("", "Already verified, not re-driven:");
+    for (const c of input.alreadyVerified) lines.push(`- ${c.id} — ${c.title}`);
+  }
+  if (input.unknown.length > 0) {
+    lines.push("", `Config ids not found as capabilities in the graph: ${input.unknown.join(", ")}`);
+  }
+  lines.push("", REVIEW_NOTE);
+  return lines.join("\n");
+}
+
 /**
  * Post a verification-coverage status comment on a feature pull request. The
  * report comes from the coverage read-model (`computeCoverage`). Informational
