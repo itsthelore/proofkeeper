@@ -42,6 +42,8 @@ export interface DriveOptions {
   goal: string;
   /** Maximum model turns before the drive gives up. Defaults to 12. */
   maxSteps?: number;
+  /** Reasons earlier attempts at this capability failed, to steer away from them. */
+  priorFailures?: string[];
 }
 
 export interface DriveResult {
@@ -62,8 +64,8 @@ interface Dispatch {
   detail?: string;
 }
 
-function systemPrompt(goal: string): string {
-  return [
+function systemPrompt(goal: string, priorFailures: string[] = []): string {
+  const lines = [
     "You are Proofkeeper's autonomous QA agent. You drive a product like a",
     "developer to verify a capability, using only the provided tools — a browser",
     "and a terminal. Work in small steps: observe, take an action, observe again.",
@@ -72,11 +74,17 @@ function systemPrompt(goal: string): string {
     "test. When the capability is driven and asserted, call finish.",
     "",
     `Goal: ${goal}`,
-    "",
-    LOCATOR_GUIDANCE,
-    "",
-    TERMINAL_GUIDANCE,
-  ].join("\n");
+  ];
+  if (priorFailures.length > 0) {
+    lines.push(
+      "",
+      "Earlier attempts at this capability failed for these reasons — do not",
+      "repeat them; choose a more robust path or more stable assertions:",
+      ...priorFailures.map((r) => `- ${r}`),
+    );
+  }
+  lines.push("", LOCATOR_GUIDANCE, "", TERMINAL_GUIDANCE);
+  return lines.join("\n");
 }
 
 /** Dispatch one tool call to the recorder. Records only on success. */
@@ -150,7 +158,7 @@ export class AutonomousDriver {
     await recorder.goto(this.options.startUrl);
 
     const transcript: ModelRequest["transcript"] = [
-      { role: "system", content: systemPrompt(this.options.goal) },
+      { role: "system", content: systemPrompt(this.options.goal, this.options.priorFailures) },
       {
         role: "user",
         content: `You are on the start page.\n\n${renderObservation(await observePage(this.page))}`,
