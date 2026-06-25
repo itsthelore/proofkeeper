@@ -17,7 +17,7 @@
  */
 
 import {
-  renderVerificationLink,
+  renderVerifiedByItem,
   VERIFIED_BY_HEADING,
   type VerificationLink,
 } from "./verified-by.js";
@@ -78,7 +78,7 @@ export function mergeVerifiedBy(content: string, links: VerificationLink[]): str
     );
     const additions = wanted
       .filter((l) => !presentRefs.has(l.test))
-      .map(renderVerificationLink);
+      .map(renderVerifiedByItem);
     if (additions.length === 0) return content; // idempotent: nothing new
 
     // Insert new items after the last existing list item (or after the heading).
@@ -91,7 +91,7 @@ export function mergeVerifiedBy(content: string, links: VerificationLink[]): str
   }
 
   // No existing section — build one and place it after the relationship block.
-  const section = [VERIFIED_BY_HEADING, "", ...wanted.map(renderVerificationLink)];
+  const section = [VERIFIED_BY_HEADING, "", ...wanted.map(renderVerifiedByItem)];
   const anchor =
     [...headings].reverse().find((h) => h.title.startsWith("related ")) ??
     headings.find((h) => h.title === "supersedes");

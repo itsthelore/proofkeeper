@@ -36,6 +36,7 @@ export type { RecorderOptions } from "./compiler/recorder.js";
 export type { Compiler, CandidateTest } from "./compiler/types.js";
 export { CodegenCompiler, NotImplementedCompiler } from "./compiler/compiler.js";
 export type { CodegenCompilerOptions } from "./compiler/compiler.js";
+export { summarizeSession } from "./compiler/summary.js";
 
 // Fidelity gate (Initiative 3 — the moat's acceptance bar).
 export { assessFidelity } from "./fidelity/gate.js";
@@ -65,7 +66,7 @@ export type { ClaudeModelClientOptions, AnthropicLike } from "./agent/adapters/c
 // Write-back (Initiative 5 — propose-only, human-reviewed PR).
 export {
   renderVerifiedBySection,
-  renderVerificationLink,
+  renderVerifiedByItem,
   proposeVerifiedBy,
   VERIFIED_BY_HEADING,
 } from "./writeback/verified-by.js";

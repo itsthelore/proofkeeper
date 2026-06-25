@@ -29,6 +29,8 @@ export interface BuildProposalInput {
   baseBranch?: string;
   /** Prefix for the generated head branch. Defaults to `proofkeeper/verified-by`. */
   branchPrefix?: string;
+  /** Reviewer-facing step lines (from `summarizeSession`) for the driven flow. */
+  steps?: string[];
 }
 
 export interface WriteBackProposal {
@@ -54,27 +56,39 @@ function proposalBody(input: {
   capabilityId: string;
   targetPath: string;
   links: VerificationLink[];
+  steps?: string[];
 }): string {
   const items = input.links
     .map((l) => `- \`${l.test}\`${l.trace ? ` (trace: \`${l.trace}\`)` : ""}`)
     .join("\n");
-  return [
+  const lines = [
     `Proofkeeper proposes recording verification for **${input.capabilityId}**.`,
     "",
-    `It adds a \`## Verified By\` section to \`${input.targetPath}\` linking the`,
-    "committed test(s) and replayable trace(s) that exercise this capability.",
+    `It adds a \`## Verified By\` section to \`${input.targetPath}\` recording the`,
+    "committed test(s) that exercise this capability. The section lists bare test",
+    "paths; the replayable trace is surfaced here in the PR.",
     "",
-    "These are external-target links (ADR-084): the engine emits them with",
-    "`resolved: false` and the literal reference as target — that is expected, not",
+    "The recorded test is an external-target link (ADR-084): the engine emits it",
+    "with `resolved: false` and the literal path as target — that is expected, not",
     "an error.",
     "",
     "Proposed links:",
     items,
+  ];
+  if (input.steps && input.steps.length > 0) {
+    lines.push("", "Steps exercised:", ...input.steps);
+  }
+  const traces = input.links.map((l) => l.trace).filter((t): t is string => Boolean(t));
+  if (traces.length > 0) {
+    lines.push("", "Replay the trace interactively:", ...traces.map((t) => `- \`npx playwright show-trace ${t}\``));
+  }
+  lines.push(
     "",
     "This is a proposal for human review (ADR-065). Proofkeeper produces and runs",
     "the evidence; a reviewer accepts the link. Merge only after confirming the",
     "referenced test and trace.",
-  ].join("\n");
+  );
+  return lines.join("\n");
 }
 
 /** Build a write-back proposal (does not touch any repo). */
@@ -88,7 +102,12 @@ export function buildProposal(input: BuildProposalInput): WriteBackProposal {
     baseBranch,
     headBranch: `${branchPrefix}/${slug(input.capabilityId)}`,
     title: `docs(verify): record Verified By for ${input.capabilityId}`,
-    body: proposalBody(input),
+    body: proposalBody({
+      capabilityId: input.capabilityId,
+      targetPath: input.targetPath,
+      links: input.links,
+      ...(input.steps !== undefined ? { steps: input.steps } : {}),
+    }),
     originalContent: input.originalContent,
     updatedContent,
     links: input.links,
@@ -98,11 +117,12 @@ export function buildProposal(input: BuildProposalInput): WriteBackProposal {
 
 /**
  * Derive verification links from a compiled test and its run results: the
- * committed spec plus the first replayable trace produced for it.
+ * committed spec (the corpus verifier) plus the first replayable trace produced
+ * for it (surfaced in the PR).
  */
 export function linksFromResults(candidate: CandidateTest, results: RunResult[]): VerificationLink[] {
   const trace = results.find((r) => r.testId === candidate.id && r.tracePath)?.tracePath;
-  const link: VerificationLink = { test: candidate.specPath, label: candidate.title ?? candidate.id };
+  const link: VerificationLink = { test: candidate.specPath };
   if (trace) link.trace = trace;
   return [link];
 }

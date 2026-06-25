@@ -26,6 +26,25 @@ describe("renderWriteBackComment", () => {
     expect(body).not.toContain("Fidelity gate");
   });
 
+  it("includes the driven step summary when steps are given", () => {
+    const body = renderWriteBackComment({
+      capabilityId: "REQ-X",
+      links: [{ test: "t.spec.ts" }],
+      steps: ["1. Navigate to /", '2. Click the button "Verify"'],
+    });
+    expect(body).toContain("Steps exercised:");
+    expect(body).toContain('2. Click the button "Verify"');
+  });
+
+  it("adds a trace-viewer replay hint when a trace is present", () => {
+    const body = renderWriteBackComment({
+      capabilityId: "REQ-X",
+      links: [{ test: "t.spec.ts", trace: "traces/x.zip" }],
+    });
+    expect(body).toContain("Replay the trace interactively:");
+    expect(body).toContain("`npx playwright show-trace traces/x.zip`");
+  });
+
   it("marks an unstable result as quarantined", () => {
     const body = renderWriteBackComment({
       capabilityId: "REQ-X",

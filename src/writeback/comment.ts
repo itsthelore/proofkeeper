@@ -35,6 +35,8 @@ export function renderWriteBackComment(input: {
   capabilityId: string;
   links: VerificationLink[];
   fidelity?: FidelitySummary;
+  /** Reviewer-facing step lines (from `summarizeSession`) for the driven flow. */
+  steps?: string[];
 }): string {
   const lines = [
     `Proofkeeper recorded verification for **${input.capabilityId}**.`,
@@ -42,6 +44,11 @@ export function renderWriteBackComment(input: {
     "Linked evidence:",
     ...input.links.map(linkLine),
   ];
+
+  if (input.steps && input.steps.length > 0) {
+    lines.push("", "Steps exercised:", ...input.steps);
+  }
+
   if (input.fidelity) {
     const f = input.fidelity;
     lines.push(
@@ -49,6 +56,13 @@ export function renderWriteBackComment(input: {
       `Fidelity gate: ${f.passed}/${f.attempts} re-runs green — ${f.stable ? "stable, safe to commit" : "unstable, quarantined"}.`,
     );
   }
+
+  // Replayable trace beats a watch-once recording: tell the reviewer how to open it.
+  const traces = input.links.map((l) => l.trace).filter((t): t is string => Boolean(t));
+  if (traces.length > 0) {
+    lines.push("", "Replay the trace interactively:", ...traces.map((t) => `- \`npx playwright show-trace ${t}\``));
+  }
+
   lines.push("", REVIEW_NOTE);
   return lines.join("\n");
 }
@@ -71,7 +85,10 @@ export function renderCoverageComment(report: CoverageReport, options: CoverageC
   if (report.verified.length > 0) {
     lines.push("", "Verified by committed tests:");
     for (const c of report.verified) {
-      lines.push(`- **${c.id}** — ${c.title}: ${c.verifiedBy.map((t) => `\`${t}\``).join(", ")}`);
+      // Bare paths backtick cleanly; only wrap a target that has no backtick of
+      // its own, so a legacy verbose target is shown verbatim rather than nested.
+      const targets = c.verifiedBy.map((t) => (t.includes("`") ? t : `\`${t}\``)).join(", ");
+      lines.push(`- **${c.id}** — ${c.title}: ${targets}`);
     }
   }
   if (report.unverified.length > 0) {

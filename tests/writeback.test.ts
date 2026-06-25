@@ -13,14 +13,11 @@ describe("renderVerifiedBySection", () => {
     expect(md).toContain("- `tests/e2e/login.spec.ts`");
   });
 
-  it("includes a trace reference when present", () => {
+  it("records bare test paths only — the trace stays out of the corpus section", () => {
     const md = renderVerifiedBySection([{ test: "tests/e2e/login.spec.ts", trace: "traces/login.zip" }]);
-    expect(md).toContain("(trace: `traces/login.zip`)");
-  });
-
-  it("uses a label when given", () => {
-    const md = renderVerifiedBySection([{ test: "t.spec.ts", label: "Login flow" }]);
-    expect(md).toContain("Login flow — `t.spec.ts`");
+    expect(md).toContain("- `tests/e2e/login.spec.ts`");
+    expect(md).not.toContain("traces/login.zip");
+    expect(md).not.toContain("(trace:");
   });
 
   it("renders one item per link", () => {

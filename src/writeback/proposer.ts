@@ -15,6 +15,8 @@
 
 import { buildProposal } from "./proposal.js";
 import { renderWriteBackComment, type FidelitySummary } from "./comment.js";
+import { summarizeSession } from "../compiler/summary.js";
+import type { RecordedSession } from "../compiler/actions.js";
 import type { VerificationLink } from "./verified-by.js";
 
 /** The repository operations the proposer needs. Implement against any backend. */
@@ -43,6 +45,8 @@ export interface WriteBackInput {
   branchPrefix?: string;
   /** When provided, a confirmation comment with the fidelity result is posted on the PR. */
   fidelity?: FidelitySummary;
+  /** When provided, the driven steps are summarized in the PR body and comment. */
+  session?: RecordedSession;
 }
 
 export type WriteBackResult =
@@ -67,6 +71,8 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
   async propose(input: WriteBackInput): Promise<WriteBackResult> {
     const baseBranch = input.baseBranch ?? this.options.baseBranch ?? "main";
 
+    const steps = input.session ? summarizeSession(input.session) : undefined;
+
     const originalContent = await this.gateway.getFileContent(input.targetPath, baseBranch);
     const proposal = buildProposal({
       capabilityId: input.capabilityId,
@@ -75,6 +81,7 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
       links: input.links,
       baseBranch,
       ...(input.branchPrefix !== undefined ? { branchPrefix: input.branchPrefix } : {}),
+      ...(steps !== undefined ? { steps } : {}),
     });
 
     if (!proposal.changed) {
@@ -103,15 +110,16 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
       headBranch: proposal.headBranch,
     };
 
-    // Optional confirmation comment carrying the fidelity evidence the PR body
-    // does not. Informational only.
-    if (input.fidelity) {
+    // Optional confirmation comment carrying the fidelity result and the driven
+    // steps. Informational only; posted when either is supplied.
+    if (input.fidelity || steps) {
       const comment = await this.gateway.commentOnPullRequest({
         number: pr.number,
         body: renderWriteBackComment({
           capabilityId: input.capabilityId,
           links: input.links,
-          fidelity: input.fidelity,
+          ...(input.fidelity !== undefined ? { fidelity: input.fidelity } : {}),
+          ...(steps !== undefined ? { steps } : {}),
         }),
       });
       result.commentUrl = comment.url;

@@ -3,8 +3,12 @@
  *
  * Proofkeeper proposes verification links by rendering the exact section the
  * engine recognizes (ADR-084): a `## Verified By` heading followed by a list of
- * external test/trace references. The targets are external (ADR-084), so the
- * engine emits them with `resolved: false` — which is expected, not an error.
+ * external references. The engine treats the entire list-item text as the
+ * reference, so each item is a single **bare** test path — the verifier the
+ * corpus records. The replayable trace is evidence surfaced in the pull request
+ * and committed as an artifact, not a corpus edge. Targets are external
+ * (ADR-084), so the engine emits them with `resolved: false` — expected, not an
+ * error.
  *
  * This is PROPOSE-ONLY. The renderer returns Markdown; it never writes into a
  * corpus. Applying it is a human-reviewed pull request (ADR-065) — the trust
@@ -13,22 +17,22 @@
 
 /** A single verifying reference: a committed test and, optionally, its trace. */
 export interface VerificationLink {
-  /** Path/reference to the committed Playwright test. */
+  /** Path/reference to the committed Playwright test — the corpus verifier. */
   test: string;
-  /** Optional path/reference to the replayable trace artifact. */
+  /** Optional replayable trace artifact — surfaced in the PR, not the corpus. */
   trace?: string;
-  /** Optional human label for the link. */
-  label?: string;
 }
 
 /** The heading the engine recognizes as the verified_by section (ADR-084). */
 export const VERIFIED_BY_HEADING = "## Verified By";
 
-/** Render one verification link as a `## Verified By` list item. */
-export function renderVerificationLink(link: VerificationLink): string {
-  const ref = link.label ? `${link.label} — \`${link.test}\`` : `\`${link.test}\``;
-  const trace = link.trace ? ` (trace: \`${link.trace}\`)` : "";
-  return `- ${ref}${trace}`;
+/**
+ * Render one verification link as a `## Verified By` list item: a single bare
+ * backticked test path, so the engine's edge target is a clean reference (the
+ * trace lives in the PR, not the section).
+ */
+export function renderVerifiedByItem(link: VerificationLink): string {
+  return `- \`${link.test}\``;
 }
 
 /**
@@ -41,7 +45,7 @@ export function renderVerifiedBySection(links: VerificationLink[]): string {
   if (links.length === 0) {
     throw new Error("refusing to render an empty `## Verified By` section");
   }
-  return [VERIFIED_BY_HEADING, "", ...links.map(renderVerificationLink), ""].join("\n");
+  return [VERIFIED_BY_HEADING, "", ...links.map(renderVerifiedByItem), ""].join("\n");
 }
 
 /** A proposed write-back: which capability, and the section to add to it. */
