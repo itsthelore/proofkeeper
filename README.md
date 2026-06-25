@@ -92,6 +92,30 @@ proofkeeper coverage --corpus path/to/rac/
 Exit codes: `0` every capability is verified, `1` one or more are unverified
 (so it gates cleanly in CI), `2` usage or parse error.
 
+## Verify a capability (one command)
+
+`proofkeeper qa` (alias `verify`) runs the whole loop behind one command: it
+picks an unverified capability from the coverage read-model, drives the product
+to record a session, compiles it, gates it on fidelity, and — with `--propose` —
+opens the `## Verified By` write-back as a human-reviewed pull request.
+
+```bash
+# Drive the first unverified capability and gate it (no write-back):
+ANTHROPIC_API_KEY=… proofkeeper qa --graph-file graph.json --url http://localhost:3000/
+
+# Verify a specific capability and, when stable, propose the write-back PR:
+ANTHROPIC_API_KEY=… GITHUB_TOKEN=… proofkeeper qa \
+  --corpus path/to/rac/ --url http://localhost:3000/ \
+  --capability REQ-CHECKOUT --n 5 \
+  --propose --repo itsthelore/your-corpus --target-path rac/requirements/checkout.md
+```
+
+The bundled Claude adapter is used when `ANTHROPIC_API_KEY` is set; bring a
+different provider by calling `runQa()` from the library with your own
+`ModelClient`. Exit codes: `0` the driven test is stable, `1` unstable
+(quarantined), `2` usage error. The write-back only ever opens a PR for a human
+to review (ADR-065) — it never commits to the base branch.
+
 ## Autonomous drive (bring your own model)
 
 The `AutonomousDriver` observes the page, asks your model for the next action,
@@ -206,7 +230,10 @@ the product through the `Recorder`, proven end-to-end by a model deciding action
 from observations through compile + a 3× green fidelity pass; a **real
 `## Verified By` write-back** — an idempotent artifact merge (validated clean
 against the real engine) proposed as a human-reviewed pull request through an
-injected `RepoGateway`, never a direct commit to the base branch.
+injected `RepoGateway`, never a direct commit to the base branch; and a **`qa`
+(alias `verify`) command** that runs the whole loop — select an unverified
+capability → drive → compile → fidelity → run → optionally propose the
+write-back — behind one entry point.
 
 It ships an **optional** reference `ModelClient` adapter for the Anthropic Claude
 API (`ClaudeModelClient`), behind the bring-your-own-model boundary — the model
