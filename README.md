@@ -122,6 +122,15 @@ The `AutonomousDriver` observes the page, asks your model for the next action,
 and drives the product through the `Recorder` — recording only what succeeds.
 Proofkeeper bundles no model: you implement `ModelClient` against your provider.
 
+The agent drives with a **browser and a terminal** (ADR-083): alongside the
+page tools it has `run_command` (run a shell command and record its result),
+`expect_output` (assert the last command's stdout/stderr — exact, contains, or
+regex), and `expect_exit` (assert its exit code). A session may interleave both,
+so a CLI capability compiles to a Playwright test that runs the command and
+asserts its output. The terminal runs shell in the product's own dev
+environment, the same as a developer's terminal; the committed test is what a
+human reviews (ADR-065).
+
 A reference adapter for the Anthropic Claude API ships in the box —
 `ClaudeModelClient` — but it is **optional**. `@anthropic-ai/sdk` is an optional
 peer dependency, imported lazily, so installing Proofkeeper never pulls in a
@@ -230,10 +239,12 @@ the product through the `Recorder`, proven end-to-end by a model deciding action
 from observations through compile + a 3× green fidelity pass; a **real
 `## Verified By` write-back** — an idempotent artifact merge (validated clean
 against the real engine) proposed as a human-reviewed pull request through an
-injected `RepoGateway`, never a direct commit to the base branch; and a **`qa`
+injected `RepoGateway`, never a direct commit to the base branch; a **`qa`
 (alias `verify`) command** that runs the whole loop — select an unverified
 capability → drive → compile → fidelity → run → optionally propose the
-write-back — behind one entry point.
+write-back — behind one entry point; and a **terminal tool surface** —
+`run_command` / `expect_output` / `expect_exit` so the agent drives a browser
+**and** a terminal, and a CLI capability compiles to a runnable test.
 
 It ships an **optional** reference `ModelClient` adapter for the Anthropic Claude
 API (`ClaudeModelClient`), behind the bring-your-own-model boundary — the model
@@ -241,10 +252,11 @@ SDK is an optional peer dependency, never a hard one.
 
 **Deferred (named, not silently dropped):** a bundled `RepoGateway` (the
 write-back is gateway-agnostic — wire Octokit/`gh`/GitHub MCP, like the model
-adapter); reference `ModelClient` adapters for other providers; a terminal tool
-surface (the drive is browser-only today); generalization of the recorder/tool
-set beyond the core actions; the cross-target/cross-OS matrix and VM-fabric
-runner; Proofkeeper Cloud (the hosted commercial tier); an `lore` MCP client.
+adapter); reference `ModelClient` adapters for other providers; per-command
+environment overrides for the terminal tool (today it records command + cwd);
+generalization of the recorder/tool set beyond the core actions; the
+cross-target/cross-OS matrix and VM-fabric runner; Proofkeeper Cloud (the hosted
+commercial tier); an `lore` MCP client.
 
 ## License
 
