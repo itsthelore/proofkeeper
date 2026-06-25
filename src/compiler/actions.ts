@@ -35,7 +35,11 @@ export type Action =
   // Terminal actions. Assertions target the most recently run command's result.
   | { type: "run"; command: string; cwd?: string }
   | { type: "expectOutput"; match: "exact" | "contains" | "regex"; stream: "stdout" | "stderr"; value: string }
-  | { type: "expectExit"; code: number };
+  | { type: "expectExit"; code: number }
+  // HTTP actions. Assertions target the most recently issued request's response.
+  | { type: "request"; method: string; url: string; headers?: Record<string, string>; body?: string }
+  | { type: "expectStatus"; status: number }
+  | { type: "expectJson"; path: string; equals: string | number | boolean };
 
 /** A captured drive session: its entry point and the actions recorded from it. */
 export interface RecordedSession {

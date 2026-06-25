@@ -45,6 +45,12 @@ function describeAction(action: Action): string {
       return `Expect the last command's ${action.stream} to ${action.match} "${action.value}"`;
     case "expectExit":
       return `Expect the last command to exit ${action.code}`;
+    case "request":
+      return `Request ${action.method} ${action.url}`;
+    case "expectStatus":
+      return `Expect HTTP status ${action.status}`;
+    case "expectJson":
+      return `Expect JSON ${action.path} to equal ${JSON.stringify(action.equals)}`;
   }
 }
 
