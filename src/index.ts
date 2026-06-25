@@ -72,6 +72,10 @@ export type {
 } from "./scope/config.js";
 export { globToRegExp, matchesAnyGlob } from "./scope/glob.js";
 
+// Config scaffolding — the in-scope MVP of `/install-qa`.
+export { scaffoldConfig, renderScaffoldedConfig } from "./scaffold/scaffold.js";
+export type { ScaffoldOptions } from "./scaffold/scaffold.js";
+
 // Agent loop (Initiatives 2–4 wired) and the BYO-model boundary.
 export { runAgentLoop } from "./agent/loop.js";
 export type { AgentLoopDeps, AgentLoopOptions, AgentLoopResult } from "./agent/loop.js";
