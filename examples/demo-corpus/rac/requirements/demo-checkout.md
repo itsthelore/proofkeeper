@@ -36,4 +36,5 @@ regression in any step is caught before release.
 
 ## Verified By
 
-- Checkout flow verified — `examples/seed.spec.ts` (trace: `test-results/checkout/trace.zip`)
+- `examples/seed.spec.ts`
+- `test-results/checkout/trace.zip`
