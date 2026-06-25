@@ -33,13 +33,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Seed spec in a real browser
         run: npx playwright test
-      - name: Runner, fidelity, compiler, autonomous-drive, and qa-loop integration tests
+      - name: Runner, fidelity, compiler, drive, terminal, and qa-loop integration tests
         run: >-
           npx vitest run
           tests/runner.integration.test.ts
           tests/compiler.integration.test.ts
           tests/drive.integration.test.ts
           tests/drive.claude.integration.test.ts
+          tests/terminal.integration.test.ts
           tests/qa.integration.test.ts
         env:
           PROOFKEEPER_E2E: "1"
