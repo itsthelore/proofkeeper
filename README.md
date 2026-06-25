@@ -116,6 +116,41 @@ different provider by calling `runQa()` from the library with your own
 (quarantined), `2` usage error. The write-back only ever opens a PR for a human
 to review (ADR-065) — it never commits to the base branch.
 
+### PR-triggered QA (scope to a change)
+
+Given a `proofkeeper.config.json` that maps each capability to the source-path
+globs whose change should re-verify it (modeled on Factory automated-qa's
+`path_patterns`), `qa --config` scopes to a pull request: it drives every
+unverified capability the changed files touch and posts the evidence as a PR
+comment.
+
+```jsonc
+// proofkeeper.config.json
+{
+  "capabilities": [
+    {
+      "id": "REQ-DEMO-CHECKOUT",
+      "paths": ["src/checkout/**", "api/checkout/**"],
+      "url": "http://localhost:3000/checkout",
+      "artifact": "rac/requirements/demo-checkout.md"
+    }
+  ]
+}
+```
+
+```bash
+# In CI on a pull request: diff against the base, scope, drive, and comment.
+ANTHROPIC_API_KEY=… GITHUB_TOKEN=… proofkeeper qa \
+  --graph-file graph.json --config proofkeeper.config.json \
+  --base-ref origin/main --propose --repo itsthelore/your-corpus --pr 42
+```
+
+Pass explicit files with `--changed src/checkout/pay.ts,api/checkout/charge.ts`
+instead of `--base-ref`. Each capability runs against its own `url`; with
+`--propose`, capabilities that declare an `artifact` get a write-back PR. Exit
+`1` if any touched-and-unverified capability did not become stable, so it gates
+cleanly in CI.
+
 ## Autonomous drive (bring your own model)
 
 The `AutonomousDriver` observes the page, asks your model for the next action,
@@ -242,9 +277,12 @@ against the real engine) proposed as a human-reviewed pull request through an
 injected `RepoGateway`, never a direct commit to the base branch; a **`qa`
 (alias `verify`) command** that runs the whole loop — select an unverified
 capability → drive → compile → fidelity → run → optionally propose the
-write-back — behind one entry point; and a **terminal tool surface** —
+write-back — behind one entry point; a **terminal tool surface** —
 `run_command` / `expect_output` / `expect_exit` so the agent drives a browser
-**and** a terminal, and a CLI capability compiles to a runnable test.
+**and** a terminal, and a CLI capability compiles to a runnable test; and
+**PR-triggered, diff-scoped QA** — a `proofkeeper.config.json` path map that
+scopes a change to the capabilities it touches, drives the unverified ones, and
+posts the evidence as a pull-request comment.
 
 It ships an **optional** reference `ModelClient` adapter for the Anthropic Claude
 API (`ClaudeModelClient`), behind the bring-your-own-model boundary — the model

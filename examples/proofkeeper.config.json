@@ -1,0 +1,16 @@
+{
+  "capabilities": [
+    {
+      "id": "REQ-DEMO-CHECKOUT",
+      "paths": ["src/checkout/**", "src/payment/**", "api/checkout/**"],
+      "url": "http://localhost:3000/checkout",
+      "goal": "Complete a checkout with valid payment and confirm the order number shows.",
+      "artifact": "examples/demo-corpus/rac/requirements/demo-checkout.md"
+    },
+    {
+      "id": "REQ-DEMO-CART",
+      "paths": ["src/cart/**"],
+      "url": "http://localhost:3000/cart"
+    }
+  ]
+}
