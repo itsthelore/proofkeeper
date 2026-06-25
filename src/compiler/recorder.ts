@@ -14,6 +14,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import type { Action, Locator, RecordedSession } from "./actions.js";
+import { runCommand, evalOutputMatch, type CommandResult, type OutputAssertion } from "./terminal.js";
 
 export interface RecorderOptions {
   title: string;
@@ -23,6 +24,8 @@ export interface RecorderOptions {
 
 export class Recorder {
   private readonly actions: Action[] = [];
+  /** The most recently run command's result; terminal assertions target it. */
+  private last: CommandResult | undefined;
 
   constructor(
     private readonly page: Page,
@@ -79,6 +82,37 @@ export class Recorder {
   async expectVisible(locator: Locator): Promise<void> {
     await expect(this.resolve(locator)).toBeVisible();
     this.actions.push({ type: "expectVisible", locator });
+  }
+
+  /**
+   * Run a shell command, record it, and return its result so the caller can
+   * decide what to assert. The result becomes the target for the next
+   * {@link expectOutput} / {@link expectExit}.
+   */
+  async run(command: string, options: { cwd?: string } = {}): Promise<CommandResult> {
+    this.last = runCommand(command, options);
+    this.actions.push({ type: "run", command, ...(options.cwd !== undefined ? { cwd: options.cwd } : {}) });
+    return this.last;
+  }
+
+  /** Assert the last command's output, recording the assertion only if it holds. */
+  async expectOutput(assertion: OutputAssertion): Promise<void> {
+    if (!this.last) throw new Error("expect_output called before any run_command");
+    if (!evalOutputMatch(this.last, assertion)) {
+      throw new Error(
+        `output assertion failed: ${assertion.stream} did not ${assertion.match} ${JSON.stringify(assertion.value)}`,
+      );
+    }
+    this.actions.push({ type: "expectOutput", match: assertion.match, stream: assertion.stream, value: assertion.value });
+  }
+
+  /** Assert the last command's exit code, recording the assertion only if it holds. */
+  async expectExit(code: number): Promise<void> {
+    if (!this.last) throw new Error("expect_exit called before any run_command");
+    if (this.last.code !== code) {
+      throw new Error(`exit assertion failed: expected ${code}, got ${this.last.code}`);
+    }
+    this.actions.push({ type: "expectExit", code });
   }
 
   /** The recorded session so far, ready to hand to the compiler. */

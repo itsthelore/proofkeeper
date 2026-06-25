@@ -41,6 +41,18 @@ function locatorExpr(loc: Locator): string {
   }
 }
 
+function outputMatchStmt(action: Extract<Action, { type: "expectOutput" }>): string {
+  const stream = `last.${action.stream}`;
+  switch (action.match) {
+    case "exact":
+      return `expect(${stream}.trim()).toBe(${lit(action.value)});`;
+    case "contains":
+      return `expect(${stream}).toContain(${lit(action.value)});`;
+    case "regex":
+      return `expect(${stream}).toMatch(new RegExp(${lit(action.value)}));`;
+  }
+}
+
 function actionStmt(action: Action, startUrl: string): string {
   switch (action.type) {
     case "goto":
@@ -59,7 +71,22 @@ function actionStmt(action: Action, startUrl: string): string {
       return `await expect(${locatorExpr(action.locator)}).toHaveText(${lit(action.text)});`;
     case "expectVisible":
       return `await expect(${locatorExpr(action.locator)}).toBeVisible();`;
+    case "run":
+      return action.cwd !== undefined
+        ? `last = runCommand(${lit(action.command)}, { cwd: ${lit(action.cwd)} });`
+        : `last = runCommand(${lit(action.command)});`;
+    case "expectOutput":
+      return outputMatchStmt(action);
+    case "expectExit":
+      return `expect(last.code).toBe(${action.code});`;
   }
+}
+
+/** True when the session drives the terminal — needs the runCommand helper. */
+function usesTerminal(session: RecordedSession): boolean {
+  return session.actions.some(
+    (a) => a.type === "run" || a.type === "expectOutput" || a.type === "expectExit",
+  );
 }
 
 /**
@@ -76,6 +103,24 @@ export function emitSpec(session: RecordedSession): string {
   const provenance = session.capabilityId
     ? ` for capability ${session.capabilityId}`
     : "";
+  const terminal = usesTerminal(session);
+
+  const imports = [
+    `import { expect, test } from "@playwright/test";`,
+    ...(terminal ? [`import { spawnSync } from "node:child_process";`] : []),
+  ].join("\n");
+
+  // Inlined so the compiled spec is standalone; mirrors src/compiler/terminal.ts
+  // exactly, so a recording that held re-runs green.
+  const helper = terminal
+    ? `\nfunction runCommand(command: string, options: { cwd?: string } = {}) {
+  const r = spawnSync(command, { shell: true, encoding: "utf8", ...options });
+  if (r.error) throw r.error;
+  return { stdout: r.stdout ?? "", stderr: r.stderr ?? "", code: r.status ?? 0 };
+}\n`
+    : "";
+
+  const firstStmt = terminal ? `  let last: { stdout: string; stderr: string; code: number };\n` : "";
   const body = session.actions
     .map((a) => `  ${actionStmt(a, session.startUrl)}`)
     .join("\n");
@@ -83,12 +128,12 @@ export function emitSpec(session: RecordedSession): string {
   return `// Compiled by Lore Proofkeeper from a recorded drive session${provenance}.
 // Do not edit by hand: re-compile the session to regenerate. Deterministic
 // (no timestamps) so it is stable to review and re-run.
-import { expect, test } from "@playwright/test";
+${imports}
 
 const BASE = process.env.PROOFKEEPER_BASE_URL ?? ${lit(session.startUrl)};
-
+${helper}
 test(${lit(session.title)}, async ({ page }) => {
-${body}
+${firstStmt}${body}
 });
 `;
 }

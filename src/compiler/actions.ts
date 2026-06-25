@@ -18,15 +18,24 @@ export type Locator =
   | { kind: "label"; label: string }
   | { kind: "css"; selector: string };
 
-/** One recorded interaction or assertion. */
+/**
+ * One recorded interaction or assertion. Browser actions drive a page; terminal
+ * actions (`run`, `expectOutput`, `expectExit`) drive a shell — the second of
+ * the "browser and a terminal" tools (ADR-083). A session may interleave both.
+ */
 export type Action =
+  // Browser actions.
   | { type: "goto"; url: string }
   | { type: "click"; locator: Locator }
   | { type: "fill"; locator: Locator; value: string }
   | { type: "check"; locator: Locator }
   | { type: "press"; locator: Locator; key: string }
   | { type: "expectText"; locator: Locator; text: string }
-  | { type: "expectVisible"; locator: Locator };
+  | { type: "expectVisible"; locator: Locator }
+  // Terminal actions. Assertions target the most recently run command's result.
+  | { type: "run"; command: string; cwd?: string }
+  | { type: "expectOutput"; match: "exact" | "contains" | "regex"; stream: "stdout" | "stderr"; value: string }
+  | { type: "expectExit"; code: number };
 
 /** A captured drive session: its entry point and the actions recorded from it. */
 export interface RecordedSession {
