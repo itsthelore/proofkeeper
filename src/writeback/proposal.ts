@@ -31,6 +31,8 @@ export interface BuildProposalInput {
   branchPrefix?: string;
   /** Readable step summary of the driven flow, shown in the PR body. */
   steps?: string[];
+  /** The Markdown test plan the model wrote before driving, shown in the PR body. */
+  plan?: string;
 }
 
 export interface WriteBackProposal {
@@ -57,6 +59,7 @@ function proposalBody(input: {
   targetPath: string;
   links: VerificationLink[];
   steps?: string[];
+  plan?: string;
 }): string {
   const items = input.links
     .map((l) => `- \`${l.test}\`${l.trace ? ` (trace: \`${l.trace}\`)` : ""}`)
@@ -75,6 +78,9 @@ function proposalBody(input: {
     "Proposed links:",
     items,
   ];
+  if (input.plan && input.plan.trim().length > 0) {
+    lines.push("", "Test plan:", "", input.plan.trim());
+  }
   if (input.steps && input.steps.length > 0) {
     lines.push("", "Steps exercised:");
     input.steps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));

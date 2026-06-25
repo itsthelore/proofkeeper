@@ -49,6 +49,8 @@ export interface WriteBackInput {
   fidelity?: FidelitySummary;
   /** Readable step summary of the driven flow, shown in the PR body and comment. */
   steps?: string[];
+  /** The Markdown test plan the model wrote before driving, shown in the PR. */
+  plan?: string;
 }
 
 export type WriteBackResult =
@@ -82,6 +84,7 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
       baseBranch,
       ...(input.branchPrefix !== undefined ? { branchPrefix: input.branchPrefix } : {}),
       ...(input.steps !== undefined ? { steps: input.steps } : {}),
+      ...(input.plan !== undefined ? { plan: input.plan } : {}),
     });
 
     if (!proposal.changed) {
@@ -121,6 +124,7 @@ export class GitHubWriteBackProposer implements WriteBackProposer {
           links: input.links,
           fidelity: input.fidelity,
           ...(input.steps !== undefined ? { steps: input.steps } : {}),
+          ...(input.plan !== undefined ? { plan: input.plan } : {}),
         }),
       });
       result.commentUrl = comment.url;
