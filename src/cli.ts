@@ -16,7 +16,7 @@ import { renderHuman, renderJson } from "./coverage/report.js";
 import { GraphParseError } from "./coverage/graph.js";
 import { loadGraphFromCorpus, loadGraphFromFile } from "./coverage/source.js";
 import { runQa, type QaDeps, type QaOptions } from "./qa/run-qa.js";
-import { runScopedQa, type ScopedQaResult } from "./qa/run-scoped.js";
+import { runScopedQa, type ScopedQaDeps, type ScopedQaResult } from "./qa/run-scoped.js";
 import { parseConfig, ConfigParseError } from "./scope/config.js";
 import { AutonomousDriver, type DriveOptions, type DriveResult } from "./agent/drive.js";
 import type { ModelClient } from "./agent/model.js";
@@ -80,6 +80,7 @@ scoped qa options (with --config):
   --config <path>       Path map: which capabilities each changed file touches.
   --changed <a,b,c>     Comma-separated changed files (else --base-ref).
   --base-ref <ref>      Diff against this git ref to find changed files.
+  --concurrency <n>     Capabilities driven at once (default: 3).
   --url <url>           Default start URL when a config capability declares none.
   --propose             Propose a write-back for capabilities that declare an artifact.
   --repo <owner/name>   Repository for write-backs and the PR comment.
@@ -385,6 +386,7 @@ export interface ScopedArgs {
   maxSteps?: number;
   outDir: string;
   plan: boolean;
+  concurrency?: number;
   propose: boolean;
   base?: string;
   repo?: string;
@@ -433,6 +435,9 @@ export function parseScopedArgs(argv: string[]): ScopedArgs {
       case "--plan":
         raw.plan = true;
         break;
+      case "--concurrency":
+        raw.concurrency = parsePositiveInt(argv[++i], "--concurrency");
+        break;
       case "--propose":
         raw.propose = true;
         break;
@@ -472,6 +477,7 @@ export function parseScopedArgs(argv: string[]): ScopedArgs {
     ...(raw.maxSteps !== undefined ? { maxSteps: raw.maxSteps } : {}),
     outDir: raw.outDir ?? "tests/generated",
     plan: raw.plan ?? false,
+    ...(raw.concurrency !== undefined ? { concurrency: raw.concurrency } : {}),
     propose: raw.propose,
     ...(raw.base !== undefined ? { base: raw.base } : {}),
     ...(raw.repo !== undefined ? { repo: raw.repo } : {}),
@@ -534,10 +540,12 @@ async function runScopedCommand(argv: string[]): Promise<number> {
   }
   const proposer = args.propose && gateway ? new GitHubWriteBackProposer(gateway) : undefined;
 
-  const deps: QaDeps = {
+  // Per-capability isolated output so concurrent drives never clobber each other.
+  const dirSlug = (id: string): string => id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "capability";
+  const deps: ScopedQaDeps = {
     drive: browserDrive(model),
-    compiler: new CodegenCompiler({ outDir: args.outDir }),
-    runner: new PlaywrightRunner(),
+    makeCompiler: (id) => new CodegenCompiler({ outDir: `${args.outDir}/${dirSlug(id)}` }),
+    makeRunner: (id) => new PlaywrightRunner({ outputDir: `test-results/${dirSlug(id)}` }),
     learning: new FileLearningStore(),
     ...(proposer ? { proposer } : {}),
   };
@@ -551,6 +559,7 @@ async function runScopedCommand(argv: string[]): Promise<number> {
     n: args.n,
     ...(args.maxSteps !== undefined ? { maxSteps: args.maxSteps } : {}),
     ...(args.plan ? { plan: true } : {}),
+    ...(args.concurrency !== undefined ? { concurrency: args.concurrency } : {}),
     ...(args.propose ? { propose: { ...(args.base !== undefined ? { baseBranch: args.base } : {}) } } : {}),
   });
 

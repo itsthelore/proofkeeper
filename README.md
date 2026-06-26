@@ -167,6 +167,12 @@ instead of `--base-ref`. Each capability runs against its own `url`; with
 `1` if any touched-and-unverified capability did not become stable, so it gates
 cleanly in CI.
 
+Touched capabilities are driven **concurrently** with a bounded pool
+(`--concurrency`, default 3), each isolated in its own browser context, compiled-
+spec directory, and runner output directory, so a change touching several
+capabilities verifies in roughly the time of the slowest one rather than their
+sum. Results stay in a deterministic order.
+
 ## Autonomous drive (bring your own model)
 
 The `AutonomousDriver` observes the page, asks your model for the next action,
