@@ -124,8 +124,10 @@ ANTHROPIC_API_KEY=… GITHUB_TOKEN=… proofkeeper qa \
 
 The bundled Claude adapter is used when `ANTHROPIC_API_KEY` is set; bring a
 different provider by calling `runQa()` from the library with your own
-`ModelClient`. Exit codes: `0` the driven test is stable, `1` unstable
-(quarantined), `2` usage error. The write-back only ever opens a PR for a human
+`ModelClient`. Pass `--plan` to have the model write a human-readable Markdown
+**test plan** before driving (the Planner→Generator shape); the plan is recorded
+on the session and shown in the write-back pull request. Exit codes: `0` the
+driven test is stable, `1` unstable (quarantined), `2` usage error. The write-back only ever opens a PR for a human
 to review (ADR-065) — it never commits to the base branch.
 
 ### PR-triggered QA (scope to a change)

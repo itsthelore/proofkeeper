@@ -47,4 +47,9 @@ export interface RecordedSession {
   startUrl: string;
   /** The recorded actions, in order. */
   actions: Action[];
+  /**
+   * Optional human-readable Markdown test plan the model emitted before driving
+   * (metadata, not compiled into the spec; surfaced in the write-back).
+   */
+  plan?: string;
 }

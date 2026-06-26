@@ -85,6 +85,8 @@ export interface QaOptions {
   n: number;
   /** Cap on model turns during the drive. */
   maxSteps?: number;
+  /** When set, the drive emits a Markdown test plan before acting. */
+  plan?: boolean;
   /** When set (and a proposer is wired), propose a Verified By write-back. */
   propose?: { targetPath: string; baseBranch?: string };
 }
@@ -118,6 +120,7 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
     goal,
     ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
     ...(prior.length > 0 ? { priorFailures: prior.map((f) => f.reason) } : {}),
+    ...(options.plan ? { plan: true } : {}),
   };
   const drive = await deps.drive(driveOptions);
 
@@ -142,6 +145,7 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
       targetPath: options.propose.targetPath,
       links: linksFromResults(loop.candidate, loop.runResults),
       steps: summarizeSession(drive.session),
+      ...(drive.session.plan !== undefined ? { plan: drive.session.plan } : {}),
       ...(options.propose.baseBranch !== undefined ? { baseBranch: options.propose.baseBranch } : {}),
       fidelity: {
         attempts: loop.verdict.attempts,

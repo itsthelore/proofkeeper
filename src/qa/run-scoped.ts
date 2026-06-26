@@ -25,6 +25,8 @@ export interface ScopedQaOptions {
   /** Fidelity re-run count. */
   n: number;
   maxSteps?: number;
+  /** When set, the drive emits a Markdown test plan before acting. */
+  plan?: boolean;
   /** When set, propose a write-back for capabilities that declare an `artifact`. */
   propose?: { baseBranch?: string };
 }
@@ -71,6 +73,7 @@ export async function runScopedQa(deps: QaDeps, options: ScopedQaOptions): Promi
       target: { name: options.targetName, baseURL: startUrl },
       n: options.n,
       ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
+      ...(options.plan ? { plan: true } : {}),
       ...(propose ? { propose } : {}),
     });
     driven.push({ capability: cap, result });

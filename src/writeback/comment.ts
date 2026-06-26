@@ -47,6 +47,8 @@ export function renderWriteBackComment(input: {
   fidelity?: FidelitySummary;
   /** Readable step summary of the driven flow. */
   steps?: string[];
+  /** The Markdown test plan the model wrote before driving. */
+  plan?: string;
 }): string {
   const lines = [
     WRITE_BACK_MARKER,
@@ -55,6 +57,9 @@ export function renderWriteBackComment(input: {
     "Linked evidence:",
     ...input.links.map(linkLine),
   ];
+  if (input.plan && input.plan.trim().length > 0) {
+    lines.push("", "Test plan:", "", input.plan.trim());
+  }
   if (input.steps && input.steps.length > 0) {
     lines.push("", "Steps exercised:");
     input.steps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));

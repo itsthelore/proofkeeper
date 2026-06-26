@@ -44,6 +44,8 @@ export interface DriveOptions {
   maxSteps?: number;
   /** Reasons earlier attempts at this capability failed, to steer away from them. */
   priorFailures?: string[];
+  /** When set, run a planning turn first and record a Markdown test plan. */
+  plan?: boolean;
 }
 
 export interface DriveResult {
@@ -53,7 +55,15 @@ export interface DriveResult {
   finished: boolean;
   /** Number of model turns taken. */
   steps: number;
+  /** The Markdown test plan, when a planning turn ran. */
+  plan?: string;
 }
+
+/** Instruction for the optional planning turn (a no-tools text response). */
+const PLAN_INSTRUCTION =
+  "Before acting, write a short Markdown test plan: the steps you will take to verify " +
+  "this capability and the observable outcomes you will assert. Respond with the plan only — " +
+  "no tool calls.";
 
 /** Outcome of dispatching one tool call against the recorder. */
 interface Dispatch {
@@ -165,6 +175,21 @@ export class AutonomousDriver {
       },
     ];
 
+    // Optional planning turn: ask for a Markdown test plan (no tools → text),
+    // record it, and feed it back as context so the drive follows its own plan.
+    let plan: string | undefined;
+    if (this.options.plan) {
+      const response = await this.model.complete({
+        transcript: [...transcript, { role: "user", content: PLAN_INSTRUCTION }],
+        tools: [],
+      });
+      const text = response.done?.trim();
+      if (text) {
+        plan = text;
+        transcript.push({ role: "assistant", content: `Test plan:\n${text}` });
+      }
+    }
+
     const maxSteps = this.options.maxSteps ?? DEFAULT_MAX_STEPS;
     let finished = false;
     let steps = 0;
@@ -203,7 +228,9 @@ export class AutonomousDriver {
       transcript.push({ role: "user", content: `Results:\n${outcomes.join("\n")}\n\n${observation}` });
     }
 
-    return { session: recorder.recording(), finished, steps };
+    const session = recorder.recording();
+    if (plan !== undefined) session.plan = plan;
+    return { session, finished, steps, ...(plan !== undefined ? { plan } : {}) };
   }
 }
 

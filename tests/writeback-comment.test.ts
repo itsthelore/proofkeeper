@@ -54,6 +54,16 @@ describe("renderWriteBackComment", () => {
     const body = renderWriteBackComment({ capabilityId: "REQ-X", links: [{ test: "t.spec.ts" }] });
     expect(body).not.toContain("show-trace");
   });
+
+  it("renders the test plan when present", () => {
+    const body = renderWriteBackComment({
+      capabilityId: "REQ-X",
+      links: [{ test: "t.spec.ts" }],
+      plan: "1. Open the page\n2. Verify the status",
+    });
+    expect(body).toContain("Test plan:");
+    expect(body).toContain("1. Open the page");
+  });
 });
 
 const REPORT: CoverageReport = {

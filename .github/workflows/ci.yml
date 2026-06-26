@@ -42,6 +42,7 @@ jobs:
           tests/drive.claude.integration.test.ts
           tests/terminal.integration.test.ts
           tests/qa.integration.test.ts
+          tests/plan.integration.test.ts
         env:
           PROOFKEEPER_E2E: "1"
 

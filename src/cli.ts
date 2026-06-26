@@ -70,6 +70,7 @@ qa options:
   --n <count>           Fidelity re-runs the test must pass (default: 3).
   --max-steps <count>   Cap on model turns during the drive.
   --out-dir <dir>       Where the compiled .spec.ts is written (default: tests/generated).
+  --plan                Emit a Markdown test plan before driving; show it in the PR.
   --propose             Propose a Verified By write-back PR when the test is stable.
   --target-path <path>  Artifact to write back to (required with --propose).
   --repo <owner/name>   Target repository for the write-back (required with --propose).
@@ -165,6 +166,7 @@ export interface QaArgs {
   n: number;
   maxSteps?: number;
   outDir: string;
+  plan: boolean;
   propose: boolean;
   targetPath?: string;
   base?: string;
@@ -218,6 +220,9 @@ export function parseQaArgs(argv: string[]): QaArgs {
       case "--out-dir":
         raw.outDir = requireValue(argv[++i], "--out-dir");
         break;
+      case "--plan":
+        raw.plan = true;
+        break;
       case "--propose":
         raw.propose = true;
         break;
@@ -261,6 +266,7 @@ export function parseQaArgs(argv: string[]): QaArgs {
     n: raw.n ?? 3,
     ...(raw.maxSteps !== undefined ? { maxSteps: raw.maxSteps } : {}),
     outDir: raw.outDir ?? "tests/generated",
+    plan: raw.plan ?? false,
     propose: raw.propose ?? false,
     ...(raw.targetPath !== undefined ? { targetPath: raw.targetPath } : {}),
     ...(raw.base !== undefined ? { base: raw.base } : {}),
@@ -325,6 +331,7 @@ async function runQaCommand(argv: string[]): Promise<number> {
     target,
     n: args.n,
     ...(args.maxSteps !== undefined ? { maxSteps: args.maxSteps } : {}),
+    ...(args.plan ? { plan: true } : {}),
     ...(args.propose
       ? { propose: { targetPath: args.targetPath!, ...(args.base !== undefined ? { baseBranch: args.base } : {}) } }
       : {}),
@@ -377,6 +384,7 @@ export interface ScopedArgs {
   n: number;
   maxSteps?: number;
   outDir: string;
+  plan: boolean;
   propose: boolean;
   base?: string;
   repo?: string;
@@ -422,6 +430,9 @@ export function parseScopedArgs(argv: string[]): ScopedArgs {
       case "--out-dir":
         raw.outDir = requireValue(argv[++i], "--out-dir");
         break;
+      case "--plan":
+        raw.plan = true;
+        break;
       case "--propose":
         raw.propose = true;
         break;
@@ -460,6 +471,7 @@ export function parseScopedArgs(argv: string[]): ScopedArgs {
     n: raw.n ?? 3,
     ...(raw.maxSteps !== undefined ? { maxSteps: raw.maxSteps } : {}),
     outDir: raw.outDir ?? "tests/generated",
+    plan: raw.plan ?? false,
     propose: raw.propose,
     ...(raw.base !== undefined ? { base: raw.base } : {}),
     ...(raw.repo !== undefined ? { repo: raw.repo } : {}),
@@ -538,6 +550,7 @@ async function runScopedCommand(argv: string[]): Promise<number> {
     ...(args.url !== undefined ? { defaultUrl: args.url } : {}),
     n: args.n,
     ...(args.maxSteps !== undefined ? { maxSteps: args.maxSteps } : {}),
+    ...(args.plan ? { plan: true } : {}),
     ...(args.propose ? { propose: { ...(args.base !== undefined ? { baseBranch: args.base } : {}) } } : {}),
   });
 
