@@ -87,6 +87,8 @@ export interface QaOptions {
   maxSteps?: number;
   /** When set, the drive emits a Markdown test plan before acting. */
   plan?: boolean;
+  /** Extra context appended to the goal (e.g. environment restrictions, auth). */
+  goalContext?: string;
   /** When set (and a proposer is wired), propose a Verified By write-back. */
   propose?: { targetPath: string; baseBranch?: string };
 }
@@ -108,7 +110,8 @@ export interface QaResult {
  */
 export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult> {
   const capability = selectCapability(options.graph, options.capabilityId);
-  const goal = options.goal ?? defaultGoal(capability);
+  const baseGoal = options.goal ?? defaultGoal(capability);
+  const goal = options.goalContext ? `${baseGoal} ${options.goalContext}` : baseGoal;
 
   // Feed reasons from earlier failed attempts into the drive (failure-learning).
   const prior = deps.learning ? await deps.learning.priorFailures(capability.id) : [];

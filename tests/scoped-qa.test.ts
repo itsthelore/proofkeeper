@@ -114,6 +114,31 @@ describe("runScopedQa", () => {
     expect(proposer.inputs[0]?.targetPath).toBe("rac/b.md");
   });
 
+  it("threads environment restrictions and auth into the drive goal", async () => {
+    const goals: Record<string, string> = {};
+    const capturingDrive: ScopedQaDeps["drive"] = (options: DriveOptions) => {
+      goals[options.capabilityId ?? "?"] = options.goal;
+      const session: RecordedSession = {
+        ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
+        title: options.title,
+        startUrl: options.startUrl,
+        actions: [{ type: "goto", url: options.startUrl }],
+      };
+      return Promise.resolve({ session, finished: true, steps: 1 } satisfies DriveResult);
+    };
+    const config: ProofkeeperConfig = {
+      capabilities: [{ id: "REQ-B", paths: ["src/b/**"], environment: "production" }],
+      environments: { production: { url: "https://prod/", restrictions: ["read-only", "never create data"] } },
+      auth: { method: "email-password", provider: "WorkOS" },
+    };
+    const deps: ScopedQaDeps = { drive: capturingDrive, makeCompiler: () => new FakeCompiler(), makeRunner: () => new FakeRunner("passed") };
+    await runScopedQa(deps, { graph: GRAPH, config, changedPaths: ["src/b/y.ts"], targetName: "local", n: 1 });
+
+    expect(goals["REQ-B"]).toContain("read-only");
+    expect(goals["REQ-B"]).toContain("never create data");
+    expect(goals["REQ-B"]).toContain("Authentication: email-password via WorkOS");
+  });
+
   it("mints an isolated compiler and runner per capability", async () => {
     const compilerIds: string[] = [];
     const runnerIds: string[] = [];

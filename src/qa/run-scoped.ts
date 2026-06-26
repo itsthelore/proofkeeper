@@ -17,7 +17,7 @@ import type { Compiler } from "../compiler/types.js";
 import type { Runner } from "../runner/types.js";
 import type { WriteBackProposer } from "../writeback/proposer.js";
 import type { LearningStore } from "../learning/store.js";
-import type { ProofkeeperConfig } from "../scope/config.js";
+import { resolveTarget, authContext, type ProofkeeperConfig } from "../scope/config.js";
 import { scopeCapabilities, type ScopedCapability, type ScopeResult } from "../scope/diff-scope.js";
 
 /** Default capabilities driven at once — conservative to bound browser/runner load. */
@@ -79,10 +79,23 @@ export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions):
     scope.toVerify,
     options.concurrency ?? DEFAULT_SCOPED_CONCURRENCY,
     async (cap): Promise<ScopedCapabilityResult> => {
-      const startUrl = cap.config.url ?? options.defaultUrl;
-      if (startUrl === undefined) {
-        return { capability: cap, error: "no start URL — set config.url or pass --url" };
+      // Resolve the target: explicit url, else a named environment, else the default.
+      const target = resolveTarget(options.config, cap.config, {
+        ...(options.defaultUrl !== undefined ? { fallbackUrl: options.defaultUrl } : {}),
+        defaultName: options.targetName,
+      });
+      if (target === undefined) {
+        return { capability: cap, error: "no start URL — set config.url, an environment, or pass --url" };
       }
+
+      // Thread environment restrictions and the auth context into the goal.
+      const contextParts: string[] = [];
+      if (target.restrictions.length > 0) {
+        contextParts.push(`Environment restrictions: ${target.restrictions.join("; ")}. Respect them strictly.`);
+      }
+      const auth = authContext(options.config);
+      if (auth) contextParts.push(auth);
+      const goalContext = contextParts.length > 0 ? contextParts.join(" ") : undefined;
 
       const propose =
         options.propose && cap.config.artifact !== undefined
@@ -104,10 +117,11 @@ export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions):
       const result = await runQa(capDeps, {
         graph: options.graph,
         capabilityId: cap.id,
-        startUrl,
+        startUrl: target.url,
         ...(cap.config.goal !== undefined ? { goal: cap.config.goal } : {}),
-        // Each capability runs against its own URL.
-        target: { name: options.targetName, baseURL: startUrl },
+        ...(goalContext !== undefined ? { goalContext } : {}),
+        // Each capability runs against its resolved environment URL.
+        target: { name: target.name, baseURL: target.url },
         n: options.n,
         ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
         ...(options.plan ? { plan: true } : {}),
