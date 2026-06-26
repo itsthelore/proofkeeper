@@ -17,7 +17,7 @@ import type { Page } from "@playwright/test";
 
 import type { RecordedSession } from "../compiler/actions.js";
 import { Recorder } from "../compiler/recorder.js";
-import { observePage, renderObservation } from "./observe.js";
+import { observePage, renderObservation, createPageMonitor } from "./observe.js";
 import type { ModelClient, ModelRequest, ToolCall } from "./model.js";
 import {
   DRIVE_TOOLS,
@@ -185,11 +185,21 @@ export class AutonomousDriver {
     // Seed the session at the known entry point, then let the model take over.
     await recorder.goto(this.options.startUrl);
 
+    // Subscribe to console and network events; merge the recent window into each
+    // observation so the model sees execution feedback, not just the DOM.
+    const monitor = createPageMonitor(this.page);
+    const observe = async (): Promise<string> =>
+      renderObservation({
+        ...(await observePage(this.page)),
+        console: [...monitor.console],
+        network: [...monitor.network],
+      });
+
     const transcript: ModelRequest["transcript"] = [
       { role: "system", content: systemPrompt(this.options.goal, this.options.priorFailures) },
       {
         role: "user",
-        content: `You are on the start page.\n\n${renderObservation(await observePage(this.page))}`,
+        content: `You are on the start page.\n\n${await observe()}`,
       },
     ];
 
@@ -242,10 +252,10 @@ export class AutonomousDriver {
       }
       if (stop) break;
 
-      const observation = renderObservation(await observePage(this.page));
-      transcript.push({ role: "user", content: `Results:\n${outcomes.join("\n")}\n\n${observation}` });
+      transcript.push({ role: "user", content: `Results:\n${outcomes.join("\n")}\n\n${await observe()}` });
     }
 
+    monitor.dispose();
     const session = recorder.recording();
     if (plan !== undefined) session.plan = plan;
     return { session, finished, steps, ...(plan !== undefined ? { plan } : {}) };

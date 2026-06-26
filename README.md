@@ -178,6 +178,10 @@ sum. Results stay in a deterministic order.
 The `AutonomousDriver` observes the page, asks your model for the next action,
 and drives the product through the `Recorder` — recording only what succeeds.
 Proofkeeper bundles no model: you implement `ModelClient` against your provider.
+Each turn's observation is the page snapshot (URL, title, visible text, ARIA tree)
+**plus recent console messages and network responses** (a bounded window), so the
+model sees execution feedback — a console error or a failed request — not just the
+DOM. This feedback is observation only; it never becomes a recorded test action.
 
 The agent drives with a **browser, a terminal, and HTTP** (ADR-083 plus ADR-085
 for the HTTP modality): alongside the page tools it has `run_command` (run a
