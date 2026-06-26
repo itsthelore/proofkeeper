@@ -104,6 +104,41 @@ export const DRIVE_TOOLS: readonly DriveTool[] = [
     },
   },
   {
+    name: "request",
+    description: "Issue an HTTP request to an absolute URL. Its response is recorded for assertions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        method: { type: "string", description: "HTTP method, e.g. GET or POST" },
+        url: { type: "string", description: "Absolute URL to request" },
+        headers: { type: "object", description: "Optional request headers" },
+        body: { type: "string", description: "Optional request body" },
+      },
+      required: ["method", "url"],
+    },
+  },
+  {
+    name: "expect_status",
+    description: "Assert the last response's HTTP status code.",
+    inputSchema: {
+      type: "object",
+      properties: { status: { type: "number", description: "Expected status, e.g. 200" } },
+      required: ["status"],
+    },
+  },
+  {
+    name: "expect_json",
+    description: "Assert a field of the last response's JSON body equals a value.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Dot-path into the JSON body, e.g. data.order.id" },
+        equals: { type: ["string", "number", "boolean"], description: "Expected scalar value" },
+      },
+      required: ["path", "equals"],
+    },
+  },
+  {
     name: "finish",
     description: "End the session: the capability has been driven and asserted.",
     inputSchema: { type: "object", properties: {} },
@@ -126,6 +161,13 @@ export const TERMINAL_GUIDANCE =
   "expect_output asserts the last command's stdout or stderr (match: exact|contains|regex), " +
   "and expect_exit asserts its exit code. Run a command, read its result, then assert the " +
   "outcomes you observe — those assertions become the committed test.";
+
+/** Guidance for the HTTP tools, folded into the system prompt. */
+export const HTTP_GUIDANCE =
+  "You also have HTTP tools for API capabilities. request issues an HTTP request to an " +
+  "absolute URL and records the response; expect_status asserts the response status code, " +
+  "and expect_json asserts a dot-path field of a JSON response body equals a value. Issue a " +
+  "request, read the response, then assert the outcomes — those become the committed test.";
 
 /** Raised when a model's locator arguments are not a recognizable strategy. */
 export class ToolArgumentError extends Error {
@@ -212,4 +254,56 @@ export function parseExpectExit(args: Record<string, unknown>): number {
     throw new ToolArgumentError(`expected an integer exit code, got ${JSON.stringify(code)}`);
   }
   return code;
+}
+
+/** Arguments for the `request` tool. */
+export interface RequestArgs {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+/** Parse a `request` tool call's arguments. */
+export function parseRequest(args: Record<string, unknown>): RequestArgs {
+  const out: RequestArgs = { method: str(args["method"], "method"), url: str(args["url"], "url") };
+  const headers = args["headers"];
+  if (headers !== undefined && headers !== null) {
+    if (typeof headers !== "object" || Array.isArray(headers)) {
+      throw new ToolArgumentError("headers must be an object of strings");
+    }
+    const record: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headers as Record<string, unknown>)) {
+      record[key] = str(value, `headers.${key}`);
+    }
+    out.headers = record;
+  }
+  const body = args["body"];
+  if (body !== undefined && body !== null) out.body = str(body, "body");
+  return out;
+}
+
+/** Parse an `expect_status` tool call's arguments. */
+export function parseExpectStatus(args: Record<string, unknown>): number {
+  const status = args["status"];
+  if (typeof status !== "number" || !Number.isInteger(status)) {
+    throw new ToolArgumentError(`expected an integer status, got ${JSON.stringify(status)}`);
+  }
+  return status;
+}
+
+/** Arguments for the `expect_json` tool. */
+export interface ExpectJsonArgs {
+  path: string;
+  equals: string | number | boolean;
+}
+
+/** Parse an `expect_json` tool call's arguments. */
+export function parseExpectJson(args: Record<string, unknown>): ExpectJsonArgs {
+  const path = str(args["path"], "path");
+  const equals = args["equals"];
+  if (typeof equals !== "string" && typeof equals !== "number" && typeof equals !== "boolean") {
+    throw new ToolArgumentError("expect_json equals must be a string, number, or boolean");
+  }
+  return { path, equals };
 }

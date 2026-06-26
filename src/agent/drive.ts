@@ -23,10 +23,14 @@ import {
   DRIVE_TOOLS,
   LOCATOR_GUIDANCE,
   TERMINAL_GUIDANCE,
+  HTTP_GUIDANCE,
   parseLocator,
   parseRunCommand,
   parseExpectOutput,
   parseExpectExit,
+  parseRequest,
+  parseExpectStatus,
+  parseExpectJson,
 } from "./tools.js";
 
 const DEFAULT_MAX_STEPS = 12;
@@ -93,7 +97,7 @@ function systemPrompt(goal: string, priorFailures: string[] = []): string {
       ...priorFailures.map((r) => `- ${r}`),
     );
   }
-  lines.push("", LOCATOR_GUIDANCE, "", TERMINAL_GUIDANCE);
+  lines.push("", LOCATOR_GUIDANCE, "", TERMINAL_GUIDANCE, "", HTTP_GUIDANCE);
   return lines.join("\n");
 }
 
@@ -138,6 +142,20 @@ async function dispatch(recorder: Recorder, call: ToolCall): Promise<Dispatch> {
       case "expect_exit":
         await recorder.expectExit(parseExpectExit(call.arguments));
         return { ok: true };
+      case "request": {
+        const input = parseRequest(call.arguments);
+        const res = await recorder.request(input);
+        const snippet = res.body.length > 500 ? `${res.body.slice(0, 500)}…` : res.body;
+        return { ok: true, detail: `${input.method} ${input.url}\nstatus: ${res.status}\nbody: ${snippet}` };
+      }
+      case "expect_status":
+        await recorder.expectStatus(parseExpectStatus(call.arguments));
+        return { ok: true };
+      case "expect_json": {
+        const { path, equals } = parseExpectJson(call.arguments);
+        await recorder.expectJson(path, equals);
+        return { ok: true };
+      }
       case "finish":
         return { ok: true, finished: true };
       default:

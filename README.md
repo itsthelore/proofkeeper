@@ -173,14 +173,17 @@ The `AutonomousDriver` observes the page, asks your model for the next action,
 and drives the product through the `Recorder` — recording only what succeeds.
 Proofkeeper bundles no model: you implement `ModelClient` against your provider.
 
-The agent drives with a **browser and a terminal** (ADR-083): alongside the
-page tools it has `run_command` (run a shell command and record its result),
-`expect_output` (assert the last command's stdout/stderr — exact, contains, or
-regex), and `expect_exit` (assert its exit code). A session may interleave both,
-so a CLI capability compiles to a Playwright test that runs the command and
-asserts its output. The terminal runs shell in the product's own dev
-environment, the same as a developer's terminal; the committed test is what a
-human reviews (ADR-065).
+The agent drives with a **browser, a terminal, and HTTP** (ADR-083 plus ADR-085
+for the HTTP modality): alongside the page tools it has `run_command` (run a
+shell command and record its result), `expect_output` (assert the last command's
+stdout/stderr — exact, contains, or regex), and `expect_exit` (assert its exit
+code); and `request` (issue an HTTP request), `expect_status` (assert the
+response status), and `expect_json` (assert a dot-path field of a JSON response
+body). A session may interleave all three, so a CLI capability compiles to a test
+that runs the command and asserts its output, and an API capability compiles to a
+test that issues the request and asserts the response. The terminal runs shell in
+the product's own dev environment; the committed test is what a human reviews
+(ADR-065).
 
 A reference adapter for the Anthropic Claude API ships in the box —
 `ClaudeModelClient` — but it is **optional**. `@anthropic-ai/sdk` is an optional
@@ -310,10 +313,11 @@ against the real engine) proposed as a human-reviewed pull request through an
 injected `RepoGateway`, never a direct commit to the base branch; a **`qa`
 (alias `verify`) command** that runs the whole loop — select an unverified
 capability → drive → compile → fidelity → run → optionally propose the
-write-back — behind one entry point; a **terminal tool surface** —
-`run_command` / `expect_output` / `expect_exit` so the agent drives a browser
-**and** a terminal, and a CLI capability compiles to a runnable test;
-**PR-triggered, diff-scoped QA** — a `proofkeeper.config.json` path map that
+write-back — behind one entry point; **terminal and HTTP tool surfaces** —
+`run_command` / `expect_output` / `expect_exit` and `request` / `expect_status` /
+`expect_json` so the agent drives a browser, a terminal, **and** HTTP, and a CLI
+or API capability compiles to a runnable test (the HTTP modality is recorded in
+ADR-085); **PR-triggered, diff-scoped QA** — a `proofkeeper.config.json` path map that
 scopes a change to the capabilities it touches, drives the unverified ones, and
 posts the evidence as a pull-request comment; and **failure-learning + richer PR
 evidence** — failed attempts are remembered and fed into the next drive, and the

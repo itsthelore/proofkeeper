@@ -38,6 +38,8 @@ export { CodegenCompiler, NotImplementedCompiler } from "./compiler/compiler.js"
 export type { CodegenCompilerOptions } from "./compiler/compiler.js";
 export { runCommand, evalOutputMatch } from "./compiler/terminal.js";
 export type { CommandResult, OutputAssertion } from "./compiler/terminal.js";
+export { httpRequest, jsonPath } from "./compiler/http.js";
+export type { HttpResponse, HttpRequestInput, JsonScalar } from "./compiler/http.js";
 export { summarizeSession } from "./compiler/summary.js";
 
 // Failure-learning — remember failed attempts, steer the next drive.
@@ -71,13 +73,17 @@ export {
   DRIVE_TOOLS,
   LOCATOR_GUIDANCE,
   TERMINAL_GUIDANCE,
+  HTTP_GUIDANCE,
   parseLocator,
   parseRunCommand,
   parseExpectOutput,
   parseExpectExit,
+  parseRequest,
+  parseExpectStatus,
+  parseExpectJson,
   ToolArgumentError,
 } from "./agent/tools.js";
-export type { DriveTool, RunCommandArgs, OutputAssertionArgs } from "./agent/tools.js";
+export type { DriveTool, RunCommandArgs, OutputAssertionArgs, RequestArgs, ExpectJsonArgs } from "./agent/tools.js";
 export { observePage, renderObservation } from "./agent/observe.js";
 export type { PageObservation } from "./agent/observe.js";
 

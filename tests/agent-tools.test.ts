@@ -6,11 +6,14 @@ import {
   parseRunCommand,
   parseExpectOutput,
   parseExpectExit,
+  parseRequest,
+  parseExpectStatus,
+  parseExpectJson,
   ToolArgumentError,
 } from "../src/agent/tools.js";
 
 describe("DRIVE_TOOLS", () => {
-  it("advertises the browser and terminal tools that map to recorder actions, plus finish", () => {
+  it("advertises the browser, terminal, and HTTP tools that map to recorder actions, plus finish", () => {
     const names = DRIVE_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "navigate",
@@ -23,6 +26,9 @@ describe("DRIVE_TOOLS", () => {
       "run_command",
       "expect_output",
       "expect_exit",
+      "request",
+      "expect_status",
+      "expect_json",
       "finish",
     ]);
     expect(DRIVE_TOOLS.every((t) => t.description.length > 0)).toBe(true);
@@ -102,5 +108,41 @@ describe("parseExpectExit", () => {
   it("rejects a non-integer code", () => {
     expect(() => parseExpectExit({ code: "0" })).toThrow(ToolArgumentError);
     expect(() => parseExpectExit({ code: 1.5 })).toThrow(ToolArgumentError);
+  });
+});
+
+describe("parseRequest", () => {
+  it("parses method and url with optional headers and body", () => {
+    expect(parseRequest({ method: "GET", url: "http://x/" })).toEqual({ method: "GET", url: "http://x/" });
+    expect(
+      parseRequest({ method: "POST", url: "http://x/", headers: { "content-type": "application/json" }, body: "{}" }),
+    ).toEqual({ method: "POST", url: "http://x/", headers: { "content-type": "application/json" }, body: "{}" });
+  });
+
+  it("rejects a missing method/url or non-string headers", () => {
+    expect(() => parseRequest({ url: "http://x/" })).toThrow(ToolArgumentError);
+    expect(() => parseRequest({ method: "GET" })).toThrow(ToolArgumentError);
+    expect(() => parseRequest({ method: "GET", url: "http://x/", headers: { a: 1 } })).toThrow(ToolArgumentError);
+  });
+});
+
+describe("parseExpectStatus", () => {
+  it("parses an integer status", () => {
+    expect(parseExpectStatus({ status: 200 })).toBe(200);
+  });
+  it("rejects a non-integer status", () => {
+    expect(() => parseExpectStatus({ status: "200" })).toThrow(ToolArgumentError);
+  });
+});
+
+describe("parseExpectJson", () => {
+  it("parses a dot-path and a scalar equals (string/number/boolean)", () => {
+    expect(parseExpectJson({ path: "a.b", equals: "x" })).toEqual({ path: "a.b", equals: "x" });
+    expect(parseExpectJson({ path: "a", equals: 7 })).toEqual({ path: "a", equals: 7 });
+    expect(parseExpectJson({ path: "a", equals: true })).toEqual({ path: "a", equals: true });
+  });
+  it("rejects a non-scalar equals or missing path", () => {
+    expect(() => parseExpectJson({ path: "a", equals: { x: 1 } })).toThrow(ToolArgumentError);
+    expect(() => parseExpectJson({ equals: "x" })).toThrow(ToolArgumentError);
   });
 });

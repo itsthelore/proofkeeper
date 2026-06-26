@@ -15,6 +15,7 @@ import { expect, type Page } from "@playwright/test";
 
 import type { Action, Locator, RecordedSession } from "./actions.js";
 import { runCommand, evalOutputMatch, type CommandResult, type OutputAssertion } from "./terminal.js";
+import { httpRequest, jsonPath, type HttpRequestInput, type HttpResponse, type JsonScalar } from "./http.js";
 
 export interface RecorderOptions {
   title: string;
@@ -26,6 +27,8 @@ export class Recorder {
   private readonly actions: Action[] = [];
   /** The most recently run command's result; terminal assertions target it. */
   private last: CommandResult | undefined;
+  /** The most recently issued request's response; HTTP assertions target it. */
+  private lastHttp: HttpResponse | undefined;
 
   constructor(
     private readonly page: Page,
@@ -113,6 +116,44 @@ export class Recorder {
       throw new Error(`exit assertion failed: expected ${code}, got ${this.last.code}`);
     }
     this.actions.push({ type: "expectExit", code });
+  }
+
+  /** Issue an HTTP request, record it, and return its response for assertions. */
+  async request(input: HttpRequestInput): Promise<HttpResponse> {
+    this.lastHttp = await httpRequest(input);
+    this.actions.push({
+      type: "request",
+      method: input.method,
+      url: input.url,
+      ...(input.headers !== undefined ? { headers: input.headers } : {}),
+      ...(input.body !== undefined ? { body: input.body } : {}),
+    });
+    return this.lastHttp;
+  }
+
+  /** Assert the last response's status, recording the assertion only if it holds. */
+  async expectStatus(status: number): Promise<void> {
+    if (!this.lastHttp) throw new Error("expect_status called before any request");
+    if (this.lastHttp.status !== status) {
+      throw new Error(`status assertion failed: expected ${status}, got ${this.lastHttp.status}`);
+    }
+    this.actions.push({ type: "expectStatus", status });
+  }
+
+  /** Assert a JSON field of the last response, recording only if it holds. */
+  async expectJson(path: string, equals: JsonScalar): Promise<void> {
+    if (!this.lastHttp) throw new Error("expect_json called before any request");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(this.lastHttp.body);
+    } catch {
+      throw new Error("expect_json: response body is not valid JSON");
+    }
+    const actual = jsonPath(parsed, path);
+    if (actual !== equals) {
+      throw new Error(`json assertion failed at ${path}: expected ${JSON.stringify(equals)}, got ${JSON.stringify(actual)}`);
+    }
+    this.actions.push({ type: "expectJson", path, equals });
   }
 
   /** The recorded session so far, ready to hand to the compiler. */
