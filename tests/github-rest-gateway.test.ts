@@ -87,6 +87,36 @@ describe("GitHubRestGateway", () => {
     expect(calls[0]?.body).toMatchObject({ body: "hello" });
   });
 
+  it("lists PR comments (id + body) via the issues comments endpoint", async () => {
+    const { impl } = fakeFetch({
+      "GET /repos/o/r/issues/12/comments?per_page=100": () => ({
+        json: [
+          { id: 1, body: "hi" },
+          { id: 2, body: "<!-- proofkeeper:scoped-qa -->\nstatus" },
+        ],
+      }),
+    });
+    const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });
+    const comments = await gateway.listComments(12);
+    expect(comments).toEqual([
+      { id: 1, body: "hi" },
+      { id: 2, body: "<!-- proofkeeper:scoped-qa -->\nstatus" },
+    ]);
+  });
+
+  it("updates a comment in place via PATCH", async () => {
+    const { impl, calls } = fakeFetch({
+      "PATCH /repos/o/r/issues/comments/2": () => ({
+        json: { html_url: "https://github.com/o/r/pull/12#issuecomment-2" },
+      }),
+    });
+    const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });
+    const result = await gateway.updateComment(2, "new body");
+    expect(result.url).toContain("#issuecomment-2");
+    expect(calls[0]?.method).toBe("PATCH");
+    expect(calls[0]?.body).toMatchObject({ body: "new body" });
+  });
+
   it("raises a clear error on a failed request", async () => {
     const { impl } = fakeFetch({ "GET *": () => ({ status: 403, json: { message: "forbidden" } }) });
     const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });

@@ -133,8 +133,10 @@ to review (ADR-065) — it never commits to the base branch.
 Given a `proofkeeper.config.json` that maps each capability to the source-path
 globs whose change should re-verify it (modeled on Factory automated-qa's
 `path_patterns`), `qa --config` scopes to a pull request: it drives every
-unverified capability the changed files touch and posts the evidence as a PR
-comment.
+unverified capability the changed files touch and posts the evidence as a single
+PR comment that **updates in place** on each run (one canonical comment per
+pull request, keyed by a hidden marker), rather than accreting a new comment per
+push.
 
 ```jsonc
 // proofkeeper.config.json

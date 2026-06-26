@@ -27,7 +27,7 @@ import { PlaywrightRunner } from "./runner/playwright-runner.js";
 import type { RunTarget } from "./runner/types.js";
 import { GitHubRestGateway } from "./writeback/gateways/github-rest.js";
 import { GitHubWriteBackProposer, type WriteBackProposer } from "./writeback/proposer.js";
-import { renderScopedQaComment, type ScopedQaCommentInput, type ScopedQaCommentRow } from "./writeback/comment.js";
+import { renderScopedQaComment, upsertComment, SCOPED_QA_MARKER, type ScopedQaCommentInput, type ScopedQaCommentRow } from "./writeback/comment.js";
 
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
@@ -544,8 +544,9 @@ async function runScopedCommand(argv: string[]): Promise<number> {
   process.stdout.write(renderScopedQaComment(toScopedComment(result, changedPaths.length)) + "\n");
 
   if (gateway && args.pr !== undefined) {
-    await gateway.commentOnPullRequest({
+    await upsertComment(gateway, {
       number: args.pr,
+      marker: SCOPED_QA_MARKER,
       body: renderScopedQaComment(toScopedComment(result, changedPaths.length)),
     });
   }

@@ -126,4 +126,19 @@ export class GitHubRestGateway implements RepoGateway {
     })) as { html_url: string };
     return { url: comment.html_url };
   }
+
+  async listComments(prNumber: number): Promise<{ id: number; body: string }[]> {
+    const data = (await this.request(
+      "GET",
+      this.repoPath(`/issues/${prNumber}/comments?per_page=100`),
+    )) as { id: number; body?: string }[];
+    return data.map((c) => ({ id: c.id, body: c.body ?? "" }));
+  }
+
+  async updateComment(commentId: number, body: string): Promise<{ url: string }> {
+    const comment = (await this.request("PATCH", this.repoPath(`/issues/comments/${commentId}`), {
+      body,
+    })) as { html_url: string };
+    return { url: comment.html_url };
+  }
 }

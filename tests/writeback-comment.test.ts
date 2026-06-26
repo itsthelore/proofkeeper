@@ -4,6 +4,9 @@ import {
   renderWriteBackComment,
   renderCoverageComment,
   commentCoverageStatus,
+  upsertComment,
+  SCOPED_QA_MARKER,
+  COVERAGE_MARKER,
 } from "../src/writeback/comment.js";
 import type { CoverageReport } from "../src/coverage/model.js";
 import type { RepoGateway } from "../src/writeback/proposer.js";
@@ -77,16 +80,51 @@ describe("renderCoverageComment", () => {
 });
 
 describe("commentCoverageStatus", () => {
-  it("posts the rendered coverage comment to the PR via the gateway", async () => {
+  it("creates the coverage comment when none exists yet", async () => {
     const commentOnPullRequest = vi.fn().mockResolvedValue({ url: "https://x/pull/9#c" });
-    const gateway = { commentOnPullRequest } as unknown as RepoGateway;
+    const listComments = vi.fn().mockResolvedValue([]);
+    const updateComment = vi.fn();
+    const gateway = { commentOnPullRequest, listComments, updateComment } as unknown as RepoGateway;
 
     const result = await commentCoverageStatus(gateway, { prNumber: 9, report: REPORT });
 
+    expect(result.updated).toBe(false);
     expect(result.url).toContain("#c");
-    expect(commentOnPullRequest).toHaveBeenCalledOnce();
+    expect(updateComment).not.toHaveBeenCalled();
     const arg = commentOnPullRequest.mock.calls[0][0];
     expect(arg.number).toBe(9);
     expect(arg.body).toContain("1/2 capabilities have a verifying test");
+    expect(arg.body).toContain(COVERAGE_MARKER);
+  });
+});
+
+describe("upsertComment", () => {
+  it("updates the existing marked comment in place instead of creating a new one", async () => {
+    const listComments = vi.fn().mockResolvedValue([
+      { id: 11, body: "unrelated" },
+      { id: 22, body: `${SCOPED_QA_MARKER}\n## old status` },
+    ]);
+    const updateComment = vi.fn().mockResolvedValue({ url: "https://x/pull/3#c-22" });
+    const commentOnPullRequest = vi.fn();
+    const gateway = { listComments, updateComment, commentOnPullRequest } as unknown as RepoGateway;
+
+    const result = await upsertComment(gateway, { number: 3, marker: SCOPED_QA_MARKER, body: `${SCOPED_QA_MARKER}\n## new status` });
+
+    expect(result.updated).toBe(true);
+    expect(updateComment).toHaveBeenCalledWith(22, `${SCOPED_QA_MARKER}\n## new status`);
+    expect(commentOnPullRequest).not.toHaveBeenCalled();
+  });
+
+  it("creates a new comment when no marked comment is present", async () => {
+    const listComments = vi.fn().mockResolvedValue([{ id: 11, body: "unrelated" }]);
+    const updateComment = vi.fn();
+    const commentOnPullRequest = vi.fn().mockResolvedValue({ url: "https://x/pull/3#c-new" });
+    const gateway = { listComments, updateComment, commentOnPullRequest } as unknown as RepoGateway;
+
+    const result = await upsertComment(gateway, { number: 3, marker: SCOPED_QA_MARKER, body: "x" });
+
+    expect(result.updated).toBe(false);
+    expect(commentOnPullRequest).toHaveBeenCalledOnce();
+    expect(updateComment).not.toHaveBeenCalled();
   });
 });

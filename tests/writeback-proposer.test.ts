@@ -64,7 +64,8 @@ class FakeGateway implements RepoGateway {
   branches: string[] = [];
   commits: { branch: string; path: string }[] = [];
   prs: { base: string; head: string }[] = [];
-  comments: { number: number; body: string }[] = [];
+  comments: { id: number; number: number; body: string }[] = [];
+  private nextCommentId = 1;
   constructor(private readonly fileContent: string) {}
 
   getFileContent(path: string, ref: string): Promise<string> {
@@ -87,9 +88,20 @@ class FakeGateway implements RepoGateway {
     return Promise.resolve({ url: "https://github.com/itsthelore/x/pull/7", number: 7 });
   }
   commentOnPullRequest(input: { number: number; body: string }): Promise<{ url: string }> {
+    const id = this.nextCommentId++;
     this.calls.push(`comment #${input.number}`);
-    this.comments.push({ number: input.number, body: input.body });
-    return Promise.resolve({ url: `https://github.com/itsthelore/x/pull/${input.number}#comment-1` });
+    this.comments.push({ id, number: input.number, body: input.body });
+    return Promise.resolve({ url: `https://github.com/itsthelore/x/pull/${input.number}#comment-${id}` });
+  }
+  listComments(prNumber: number): Promise<{ id: number; body: string }[]> {
+    this.calls.push(`list #${prNumber}`);
+    return Promise.resolve(this.comments.filter((c) => c.number === prNumber).map((c) => ({ id: c.id, body: c.body })));
+  }
+  updateComment(commentId: number, body: string): Promise<{ url: string }> {
+    this.calls.push(`update comment ${commentId}`);
+    const c = this.comments.find((x) => x.id === commentId);
+    if (c) c.body = body;
+    return Promise.resolve({ url: `https://github.com/itsthelore/x/pull/0#comment-${commentId}` });
   }
 }
 
