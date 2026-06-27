@@ -33,3 +33,8 @@ regression in any step is caught before release.
 ## Related Requirements
 
 - REQ-DEMO-CART
+
+## Verified By
+
+- `examples/seed.spec.ts`
+- `test-results/checkout/trace.zip`
