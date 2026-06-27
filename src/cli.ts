@@ -28,9 +28,10 @@ import type { RunTarget } from "./runner/types.js";
 import { GitHubRestGateway } from "./writeback/gateways/github-rest.js";
 import { GitHubWriteBackProposer, type WriteBackProposer } from "./writeback/proposer.js";
 import { renderScopedQaComment, upsertComment, SCOPED_QA_MARKER, type ScopedQaCommentInput, type ScopedQaCommentRow } from "./writeback/comment.js";
+import { scaffoldConfig, renderScaffoldedConfig } from "./scaffold/scaffold.js";
 
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, stat } from "node:fs/promises";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -43,6 +44,7 @@ const USAGE = `proofkeeper — autonomous verification for the Lore family
 
 Usage:
   proofkeeper coverage (--graph-file <path> | --corpus <dir>) [--json]
+  proofkeeper init (--graph-file <path> | --corpus <dir>) [--url <url>] [--out <path>]
   proofkeeper qa (--graph-file <path> | --corpus <dir>) --url <url> [options]
   proofkeeper qa (--graph-file <path> | --corpus <dir>) --config <path>
                  (--changed <files> | --base-ref <ref>) [options]
@@ -50,6 +52,9 @@ Usage:
 
 Commands:
   coverage    Report which Lore capabilities have no verifying (verified_by) test.
+  init        Scaffold a proofkeeper.config.json from the coverage graph: one
+              capability per requirement node, plus a starter environment block.
+              Reads only the published Lore contract; never overwrites a file.
   qa          Drive one capability, compile a test, gate it on fidelity, and
               (optionally) propose the Verified By write-back. Alias: verify.
               With --config, scope to a change: drive every unverified capability
@@ -59,6 +64,12 @@ Coverage options:
   --graph-file <path>   Read a 'rac export --graph' JSON file (primary).
   --corpus <dir>        Shell out to 'rac export --graph <dir>' (requires rac on PATH).
   --json                Emit the stable machine-readable contract.
+
+init options:
+  --graph-file <path>   | --corpus <dir>   Coverage source (one required).
+  --url <url>           Development environment URL (default: http://localhost:3000).
+  --out <path>          Where to write the config (default: proofkeeper.config.json).
+                        Refuses to overwrite an existing file.
 
 qa options:
   --graph-file <path>   | --corpus <dir>   Coverage source (one required).
@@ -150,6 +161,92 @@ async function runCoverage(argv: string[]): Promise<number> {
   const report = computeCoverage(graph);
   process.stdout.write((args.json ? renderJson(report) : renderHuman(report)) + "\n");
   return report.unverified.length > 0 ? EXIT_UNVERIFIED : EXIT_OK;
+}
+
+// ---------------------------------------------------------------------------
+// init — scaffold a config from the coverage graph
+// ---------------------------------------------------------------------------
+
+export interface InitArgs {
+  graphFile?: string;
+  corpus?: string;
+  url?: string;
+  out: string;
+}
+
+const DEFAULT_CONFIG_PATH = "proofkeeper.config.json";
+
+/** Parse `init` arguments. Pure and exported so it is unit-testable. */
+export function parseInitArgs(argv: string[]): InitArgs {
+  const raw: Partial<InitArgs> = {};
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    switch (arg) {
+      case "--graph-file":
+        raw.graphFile = requireValue(argv[++i], "--graph-file");
+        break;
+      case "--corpus":
+        raw.corpus = requireValue(argv[++i], "--corpus");
+        break;
+      case "--url":
+        raw.url = requireValue(argv[++i], "--url");
+        break;
+      case "--out":
+        raw.out = requireValue(argv[++i], "--out");
+        break;
+      default:
+        throw new UsageError(`unknown option '${arg}'`);
+    }
+  }
+
+  if (!raw.graphFile && !raw.corpus) {
+    throw new UsageError("init requires --graph-file <path> or --corpus <dir>");
+  }
+  if (raw.graphFile && raw.corpus) {
+    throw new UsageError("pass only one of --graph-file or --corpus");
+  }
+
+  return {
+    ...(raw.graphFile !== undefined ? { graphFile: raw.graphFile } : {}),
+    ...(raw.corpus !== undefined ? { corpus: raw.corpus } : {}),
+    ...(raw.url !== undefined ? { url: raw.url } : {}),
+    out: raw.out ?? DEFAULT_CONFIG_PATH,
+  };
+}
+
+/** True when a path already exists on disk. */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function runInit(argv: string[]): Promise<number> {
+  const args = parseInitArgs(argv);
+  const graph = args.graphFile
+    ? await loadGraphFromFile(args.graphFile)
+    : await loadGraphFromCorpus(args.corpus!);
+
+  // Never overwrite: refuse before generating so the user's file is untouched.
+  if (await pathExists(args.out)) {
+    throw new UsageError(`'${args.out}' already exists — remove it or pass --out <path> to write elsewhere`);
+  }
+
+  const config = scaffoldConfig(graph, { ...(args.url !== undefined ? { url: args.url } : {}) });
+  await writeFile(args.out, renderScaffoldedConfig(config), "utf8");
+
+  const count = config.capabilities.length;
+  process.stdout.write(
+    `Wrote ${args.out} with ${count} capabilit${count === 1 ? "y" : "ies"} from the coverage graph.\n` +
+      "Next steps:\n" +
+      "  - Narrow each capability's path globs from 'src/**' to the files it owns.\n" +
+      "  - Set your environment URLs and, if the product needs sign-in, an auth block.\n" +
+      "  - Add personas for role-specific flows.\n",
+  );
+  return EXIT_OK;
 }
 
 // ---------------------------------------------------------------------------
@@ -611,6 +708,8 @@ export async function main(argv: string[]): Promise<number> {
     switch (command) {
       case "coverage":
         return await runCoverage(rest);
+      case "init":
+        return await runInit(rest);
       case "qa":
       case "verify":
         return await runQaCommand(rest);
