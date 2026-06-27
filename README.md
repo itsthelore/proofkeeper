@@ -1,6 +1,6 @@
 # Lore Proofkeeper
 
-> The **open-source autonomous-QA DROID** for the Lore family — browser **and**
+> The **open-source autonomous-QA agent** for the Lore family — browser **and**
 > terminal, bring-your-own-model, evidence-in-PR — bounded to verification.
 > Proofkeeper *keeps the proof*: the stable test plus its replayable trace, so an
 > agent's work is verified by reading and re-running the committed test in the
@@ -28,7 +28,7 @@ capability from unverified to verified in the coverage report (see
 [Scope](#v001-scope)). On top of this, a single **`qa` command** runs the whole
 loop, the drive has a **terminal** as well as a browser, **PR-triggered QA**
 scopes to a change and comments the evidence, and **failed attempts are
-remembered** to steer the next run — the open-source autonomous-QA DROID,
+remembered** to steer the next run — the open-source autonomous-QA agent,
 bounded to verification.
 
 > **Naming.** The product is **Proofkeeper**; the display brand is **Lore
@@ -69,14 +69,14 @@ This boundary is deliberate and load-bearing:
   **Lore owns the knowledge.** In one line: *Lore records and reports
   verification; Proofkeeper produces and runs the evidence.*
 - **Verification only — not code review or codegen.** Proofkeeper "produces
-  verification evidence and nothing else" (ADR-083 Non-Goals). DROID-style PR
+  verification evidence and nothing else" (ADR-083 Non-Goals). Automated PR
   code review is a Watchkeeper (ADR-043) / Gatekeeper (ADR-049) concern, not
   Proofkeeper's; it is deliberately out of scope here.
 
 These follow the recorded Lore decisions ADR-083 (product identity and
 boundary) and ADR-084 (the `verified_by` external-target relationship). The
-DROID-parity build shape is recorded in
-[`docs/roadmap/os-droid-build.md`](./docs/roadmap/os-droid-build.md).
+build shape is recorded in
+[`docs/roadmap/os-autonomous-qa-build.md`](./docs/roadmap/os-autonomous-qa-build.md).
 
 ## The coverage signal
 
