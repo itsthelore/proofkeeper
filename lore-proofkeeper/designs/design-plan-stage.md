@@ -73,7 +73,7 @@ from the after-the-fact "Steps exercised" summary.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements
 
 ## Status
 

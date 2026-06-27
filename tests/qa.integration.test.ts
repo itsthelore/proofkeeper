@@ -13,7 +13,7 @@ import type { Graph } from "../src/coverage/graph.js";
 import type { WriteBackInput, WriteBackProposer, WriteBackResult } from "../src/writeback/proposer.js";
 
 /**
- * The DROID loop behind one entry point, end to end: `runQa` selects the
+ * The QA loop behind one entry point, end to end: `runQa` selects the
  * unverified capability, drives it with a real browser + a BYO model, compiles
  * and fidelity-gates the session, and proposes the write-back. This is exactly
  * what the `proofkeeper qa` command runs (minus the env-wired browser/model).
@@ -61,7 +61,7 @@ class CapturingProposer implements WriteBackProposer {
   }
 }
 
-e2e("runQa — the DROID loop drives, gates, and proposes end to end", () => {
+e2e("runQa — the QA loop drives, gates, and proposes end to end", () => {
   let server: Server;
   let baseURL: string;
   let browser: Browser;

@@ -41,4 +41,4 @@ assert. Without it the model wastes turns guessing at failures it cannot see.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements

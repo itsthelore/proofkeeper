@@ -1,18 +1,18 @@
-# Proofkeeper as the open-source autonomous-QA DROID
+# Proofkeeper — the open-source autonomous-QA agent
 
-This records the build shape that makes Proofkeeper the **open-source equivalent
-of Factory's DROID** — an autonomous agent that, given real developer tools,
-drives a product to verify it and leaves durable, replayable evidence in a pull
-request. It complements `competitive-notes-and-future-work.md` (the Devin /
-Factory comparison) by naming what we build, what we deliberately do not, and in
-what order.
+This records the build shape for Proofkeeper as an **open-source autonomous-QA
+agent**, modeling the autonomous-QA half of Factory's DROID — an agent that, given
+real developer tools, drives a product to verify it and leaves durable, replayable
+evidence in a pull request. It complements `competitive-notes-and-future-work.md`
+(the Devin / Factory comparison) by naming what we build, what we deliberately do
+not, and in what order.
 
 ## The boundary (settled, load-bearing)
 
-DROID spans three capability families. The recorded Lore decisions split them
-across *different* siblings — they do not all belong to Proofkeeper:
+Factory's DROID spans three capability families. The recorded Lore decisions split
+them across *different* siblings — they do not all belong to Proofkeeper:
 
-| DROID capability | Lore home | In Proofkeeper? |
+| Factory DROID capability | Lore home | In Proofkeeper? |
 |---|---|---|
 | Automated QA (drive → compile → verify → evidence-in-PR) | **Proofkeeper** | ✅ ADR-083 |
 | Browser **and terminal** control | **Proofkeeper** | ✅ ADR-083 ("a browser and a terminal") |
@@ -36,7 +36,7 @@ it.
 Delivered as a v0.1.0 → v0.4.0 series on top of the v0.0.1 prototype (coverage
 read-model, runner, fidelity gate, compiler, browser drive, write-back).
 
-### v0.1.0 — `qa` / `verify`: the DROID loop behind one command — Landed
+### v0.1.0 — `qa` / `verify`: the QA loop behind one command — Landed
 
 One command runs the whole loop: select an unverified capability → drive →
 compile → fidelity → run → optionally propose the `## Verified By` write-back.
@@ -82,12 +82,13 @@ re-runnable test rather than a watch-once video).
 - **Per-command environment overrides for the terminal tool** — the terminal
   records command + cwd today.
 
-## Why this is "the open-source DROID"
+## Why this is "the open-source autonomous-QA agent"
 
 Proofkeeper now drives a product with a **browser and a terminal**, **bringing
 your own model**, behind **one command**, scoped to a **pull request**, learning
 from **failures**, and leaving **durable, re-runnable evidence** a human reviews
-— the autonomous-QA half of DROID, in the open, bounded to verification. The
+— matching the autonomous-QA half of Factory's DROID, in the open, bounded to
+verification. The
 differentiator over Devin/Factory remains the **re-runnable test + interactive
 trace + fidelity gate**: an agent's work is verified by *reading and re-running*
 the committed test, not by watching a recording.

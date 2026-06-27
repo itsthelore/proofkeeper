@@ -3,7 +3,7 @@
  * The `proofkeeper` CLI.
  *
  * - `coverage` exposes the coverage read-model (Initiative 1).
- * - `qa` (alias `verify`) runs the full DROID loop for one capability: select →
+ * - `qa` (alias `verify`) runs the full QA loop for one capability: select →
  *   drive → compile → fidelity → run → (optional) propose the write-back.
  *
  * Exit codes are a stable contract: 0 = success (every capability verified, or

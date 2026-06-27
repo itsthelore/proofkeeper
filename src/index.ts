@@ -50,7 +50,7 @@ export type { LearningStore, FailureRecord } from "./learning/store.js";
 export { assessFidelity } from "./fidelity/gate.js";
 export type { FidelityOptions, FidelityVerdict } from "./fidelity/gate.js";
 
-// The QA loop behind one command — the DROID spine (Initiatives 1–5 wired).
+// The QA loop behind one command — the autonomous-QA spine (Initiatives 1–5 wired).
 export { runQa, selectCapability, defaultGoal } from "./qa/run-qa.js";
 export type { QaDeps, QaOptions, QaResult } from "./qa/run-qa.js";
 

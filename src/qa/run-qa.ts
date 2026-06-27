@@ -1,5 +1,5 @@
 /**
- * The QA loop behind one command — Proofkeeper's DROID spine.
+ * The QA loop behind one command — Proofkeeper's autonomous-QA spine.
  *
  * It wires the already-real pieces into a single autonomous pass: pick an
  * unverified capability from the coverage read-model (Initiative 1), drive the

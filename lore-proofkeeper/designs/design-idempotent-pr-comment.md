@@ -78,7 +78,7 @@ woven into prose.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements
 
 ## Status
 

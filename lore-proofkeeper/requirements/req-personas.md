@@ -41,4 +41,4 @@ agent is not told a role's focus or forbidden actions.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements

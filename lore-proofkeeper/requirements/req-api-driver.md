@@ -44,4 +44,4 @@ records that a first-class HTTP modality is an in-scope extension of ADR-083.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements
