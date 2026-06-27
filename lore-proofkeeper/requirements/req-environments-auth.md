@@ -45,3 +45,7 @@ restriction, and the model is not told how to authenticate.
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/scope-config.test.ts`

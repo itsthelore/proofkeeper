@@ -44,3 +44,8 @@ touched.
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/qa-command.test.ts`
+- `tests/scoped-qa.test.ts`

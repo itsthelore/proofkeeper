@@ -43,3 +43,8 @@ artifacts.
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/concurrency.test.ts`
+- `tests/scoped-qa.test.ts`
