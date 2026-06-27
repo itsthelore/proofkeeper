@@ -43,3 +43,7 @@ read the spec.
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/plan.integration.test.ts`

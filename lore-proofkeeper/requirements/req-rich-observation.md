@@ -42,3 +42,8 @@ assert. Without it the model wastes turns guessing at failures it cannot see.
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/observe.test.ts`
+- `tests/observe.integration.test.ts`

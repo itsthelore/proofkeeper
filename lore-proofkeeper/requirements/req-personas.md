@@ -42,3 +42,8 @@ agent is not told a role's focus or forbidden actions.
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/scope-config.test.ts`
+- `tests/scoped-qa.test.ts`

@@ -42,3 +42,7 @@ graph already names — a deterministic, contract-only starting point a user the
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/scaffold.test.ts`

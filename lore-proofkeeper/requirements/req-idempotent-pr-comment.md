@@ -46,3 +46,8 @@ comment per pull request that updates in place.
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/writeback-comment.test.ts`
+- `tests/github-rest-gateway.test.ts`
