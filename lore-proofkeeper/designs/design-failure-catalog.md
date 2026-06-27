@@ -75,7 +75,7 @@ results, consistent with the existing scoped-QA comment.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements
 
 ## Status
 

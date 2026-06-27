@@ -74,7 +74,7 @@ guidance short and actionable.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements
 
 ## Status
 

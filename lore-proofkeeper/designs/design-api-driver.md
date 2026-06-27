@@ -76,7 +76,7 @@ the recorder, emitter, and tool surface read consistently.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements
 
 ## Status
 

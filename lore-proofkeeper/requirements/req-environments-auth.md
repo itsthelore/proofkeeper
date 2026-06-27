@@ -44,4 +44,4 @@ restriction, and the model is not told how to authenticate.
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements

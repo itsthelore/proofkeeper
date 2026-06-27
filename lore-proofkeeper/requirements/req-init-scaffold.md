@@ -41,4 +41,4 @@ graph already names — a deterministic, contract-only starting point a user the
 
 ## Related Roadmaps
 
-- post-droid-enhancements
+- autonomous-qa-enhancements
