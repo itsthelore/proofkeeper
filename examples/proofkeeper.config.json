@@ -5,6 +5,7 @@
   },
   "defaultTarget": "development",
   "auth": { "method": "email-password", "provider": "WorkOS" },
+  "failureLearning": "suggest_in_report",
   "personas": [
     { "name": "shopper", "testFocus": ["cart", "checkout"] },
     { "name": "guest", "testFocus": ["browse"], "cannotDo": ["checkout", "save-payment"] }

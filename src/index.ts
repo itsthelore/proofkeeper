@@ -55,8 +55,8 @@ export { runQa, selectCapability, defaultGoal } from "./qa/run-qa.js";
 export type { QaDeps, QaOptions, QaResult } from "./qa/run-qa.js";
 
 // PR-triggered, diff-scoped QA.
-export { runScopedQa, DEFAULT_SCOPED_CONCURRENCY } from "./qa/run-scoped.js";
-export type { ScopedQaDeps, ScopedQaOptions, ScopedQaResult, ScopedCapabilityResult } from "./qa/run-scoped.js";
+export { runScopedQa, collectFailureSuggestions, DEFAULT_SCOPED_CONCURRENCY } from "./qa/run-scoped.js";
+export type { ScopedQaDeps, ScopedQaOptions, ScopedQaResult, ScopedCapabilityResult, FailureSuggestion } from "./qa/run-scoped.js";
 export { mapPool } from "./qa/concurrency.js";
 export { scopeCapabilities } from "./scope/diff-scope.js";
 export type { ScopeResult, ScopedCapability } from "./scope/diff-scope.js";
@@ -67,6 +67,7 @@ export type {
   EnvironmentConfig,
   AuthConfig,
   PersonaConfig,
+  FailureLearningStrategy,
   ResolvedTarget,
 } from "./scope/config.js";
 export { globToRegExp, matchesAnyGlob } from "./scope/glob.js";

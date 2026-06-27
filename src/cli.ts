@@ -16,7 +16,7 @@ import { renderHuman, renderJson } from "./coverage/report.js";
 import { GraphParseError } from "./coverage/graph.js";
 import { loadGraphFromCorpus, loadGraphFromFile } from "./coverage/source.js";
 import { runQa, type QaDeps, type QaOptions } from "./qa/run-qa.js";
-import { runScopedQa, type ScopedQaDeps, type ScopedQaResult } from "./qa/run-scoped.js";
+import { runScopedQa, collectFailureSuggestions, type ScopedQaDeps, type ScopedQaResult, type FailureSuggestion } from "./qa/run-scoped.js";
 import { parseConfig, ConfigParseError } from "./scope/config.js";
 import { AutonomousDriver, type DriveOptions, type DriveResult } from "./agent/drive.js";
 import type { ModelClient } from "./agent/model.js";
@@ -496,7 +496,11 @@ async function gitChangedFiles(baseRef: string): Promise<string[]> {
 }
 
 /** Map a scoped run into the PR comment input. */
-function toScopedComment(result: ScopedQaResult, changedCount: number): ScopedQaCommentInput {
+function toScopedComment(
+  result: ScopedQaResult,
+  changedCount: number,
+  failureSuggestions: FailureSuggestion[] = [],
+): ScopedQaCommentInput {
   const driven: ScopedQaCommentRow[] = result.driven.map((d) => {
     if (d.error !== undefined) return { id: d.capability.id, title: d.capability.title, error: d.error };
     const r = d.result!;
@@ -509,6 +513,7 @@ function toScopedComment(result: ScopedQaResult, changedCount: number): ScopedQa
     driven,
     alreadyVerified: result.scope.scoped.filter((s) => s.verified).map((s) => ({ id: s.id, title: s.title })),
     unknown: result.scope.unknown,
+    ...(failureSuggestions.length > 0 ? { failureSuggestions } : {}),
   };
 }
 
@@ -542,11 +547,12 @@ async function runScopedCommand(argv: string[]): Promise<number> {
 
   // Per-capability isolated output so concurrent drives never clobber each other.
   const dirSlug = (id: string): string => id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "capability";
+  const learning = new FileLearningStore();
   const deps: ScopedQaDeps = {
     drive: browserDrive(model),
     makeCompiler: (id) => new CodegenCompiler({ outDir: `${args.outDir}/${dirSlug(id)}` }),
     makeRunner: (id) => new PlaywrightRunner({ outputDir: `test-results/${dirSlug(id)}` }),
-    learning: new FileLearningStore(),
+    learning,
     ...(proposer ? { proposer } : {}),
   };
 
@@ -563,13 +569,24 @@ async function runScopedCommand(argv: string[]): Promise<number> {
     ...(args.propose ? { propose: { ...(args.base !== undefined ? { baseBranch: args.base } : {}) } } : {}),
   });
 
-  process.stdout.write(renderScopedQaComment(toScopedComment(result, changedPaths.length)) + "\n");
+  // Failure-learning: surface recorded failure modes in the report (suggest_in_report).
+  // The catalog-write strategies write outside the propose-only boundary — deferred.
+  const strategy = config.failureLearning ?? "suggest_in_report";
+  if (strategy !== "suggest_in_report") {
+    process.stderr.write(
+      `note: failureLearning '${strategy}' writes catalog updates outside the propose-only ` +
+        "boundary and is not yet wired; surfacing failure modes in the report instead.\n",
+    );
+  }
+  const suggestions = await collectFailureSuggestions(result, learning);
+
+  process.stdout.write(renderScopedQaComment(toScopedComment(result, changedPaths.length, suggestions)) + "\n");
 
   if (gateway && args.pr !== undefined) {
     await upsertComment(gateway, {
       number: args.pr,
       marker: SCOPED_QA_MARKER,
-      body: renderScopedQaComment(toScopedComment(result, changedPaths.length)),
+      body: renderScopedQaComment(toScopedComment(result, changedPaths.length, suggestions)),
     });
   }
 

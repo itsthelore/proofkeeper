@@ -48,6 +48,15 @@ export interface AuthConfig {
   provider?: string;
 }
 
+/** How accumulated failure knowledge is surfaced (Factory automated-qa's `failure_learning`). */
+export type FailureLearningStrategy = "suggest_in_report" | "auto_commit" | "open_a_pr";
+
+const FAILURE_LEARNING_STRATEGIES: readonly FailureLearningStrategy[] = [
+  "suggest_in_report",
+  "auto_commit",
+  "open_a_pr",
+];
+
 export interface ProofkeeperConfig {
   capabilities: CapabilityConfig[];
   /** Named environments (e.g. development, production). */
@@ -58,6 +67,8 @@ export interface ProofkeeperConfig {
   auth?: AuthConfig;
   /** User roles a capability can be driven as. */
   personas?: PersonaConfig[];
+  /** How failure knowledge is surfaced. Defaults to `suggest_in_report`. */
+  failureLearning?: FailureLearningStrategy;
 }
 
 /** A capability's resolved run target. */
@@ -163,7 +174,16 @@ export function parseConfig(json: string): ProofkeeperConfig {
   if (typeof raw["defaultTarget"] === "string") config.defaultTarget = raw["defaultTarget"];
   if (raw["auth"] !== undefined) config.auth = parseAuth(raw["auth"]);
   if (raw["personas"] !== undefined) config.personas = parsePersonas(raw["personas"]);
+  config.failureLearning =
+    raw["failureLearning"] !== undefined ? parseFailureLearning(raw["failureLearning"]) : "suggest_in_report";
   return config;
+}
+
+function parseFailureLearning(raw: unknown): FailureLearningStrategy {
+  if (typeof raw !== "string" || !FAILURE_LEARNING_STRATEGIES.includes(raw as FailureLearningStrategy)) {
+    throw new ConfigParseError(`failureLearning must be one of: ${FAILURE_LEARNING_STRATEGIES.join(", ")}`);
+  }
+  return raw as FailureLearningStrategy;
 }
 
 /**

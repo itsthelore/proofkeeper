@@ -170,3 +170,20 @@ describe("personaContext", () => {
     ).toThrow(/testFocus/);
   });
 });
+
+describe("failureLearning strategy", () => {
+  it("defaults to suggest_in_report and accepts the three strategies", () => {
+    const bare = parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }] }));
+    expect(bare.failureLearning).toBe("suggest_in_report");
+    for (const s of ["suggest_in_report", "auto_commit", "open_a_pr"]) {
+      const cfg = parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], failureLearning: s }));
+      expect(cfg.failureLearning).toBe(s);
+    }
+  });
+
+  it("rejects an unknown strategy", () => {
+    expect(() =>
+      parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], failureLearning: "email-me" })),
+    ).toThrow(/failureLearning must be one of/);
+  });
+});

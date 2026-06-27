@@ -132,6 +132,8 @@ export interface ScopedQaCommentInput {
   alreadyVerified: { id: string; title: string }[];
   /** Config ids that matched the diff but are not capability nodes. */
   unknown: string[];
+  /** Recorded failure reasons per failed capability (suggest-in-report strategy). */
+  failureSuggestions?: { id: string; title: string; reasons: string[] }[];
 }
 
 /** Scoped-QA evidence comment for the feature PR that triggered the run. */
@@ -159,6 +161,13 @@ export function renderScopedQaComment(input: ScopedQaCommentInput): string {
   }
   if (input.unknown.length > 0) {
     lines.push("", `Config ids not found as capabilities in the graph: ${input.unknown.join(", ")}`);
+  }
+  if (input.failureSuggestions && input.failureSuggestions.length > 0) {
+    lines.push("", "Known failure modes:");
+    for (const s of input.failureSuggestions) {
+      lines.push(`- **${s.id}** — ${s.title}:`);
+      for (const reason of s.reasons) lines.push(`  - ${reason}`);
+    }
   }
   lines.push("", REVIEW_NOTE);
   return lines.join("\n");

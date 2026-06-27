@@ -72,6 +72,34 @@ export interface ScopedQaResult {
   driven: ScopedCapabilityResult[];
 }
 
+/** A capability's recorded failure reasons, for the suggest-in-report strategy. */
+export interface FailureSuggestion {
+  id: string;
+  title: string;
+  reasons: string[];
+}
+
+/**
+ * Collect recorded failure reasons for each driven capability that failed or
+ * could not be driven, from the learning store — the `suggest_in_report`
+ * failure-learning strategy's source. Pure over the store (no drive).
+ */
+export async function collectFailureSuggestions(
+  result: ScopedQaResult,
+  learning: LearningStore,
+): Promise<FailureSuggestion[]> {
+  const suggestions: FailureSuggestion[] = [];
+  for (const driven of result.driven) {
+    const failed = driven.error !== undefined || driven.result?.verified === false;
+    if (!failed) continue;
+    const prior = await learning.priorFailures(driven.capability.id);
+    if (prior.length > 0) {
+      suggestions.push({ id: driven.capability.id, title: driven.capability.title, reasons: prior.map((f) => f.reason) });
+    }
+  }
+  return suggestions;
+}
+
 export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions): Promise<ScopedQaResult> {
   const scope = scopeCapabilities(options.changedPaths, options.config, options.graph);
 
