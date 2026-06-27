@@ -139,6 +139,41 @@ describe("runScopedQa", () => {
     expect(goals["REQ-B"]).toContain("Authentication: email-password via WorkOS");
   });
 
+  it("threads a persona's focus and forbidden actions into the drive goal", async () => {
+    const goals: Record<string, string> = {};
+    const capturingDrive: ScopedQaDeps["drive"] = (options: DriveOptions) => {
+      goals[options.capabilityId ?? "?"] = options.goal;
+      const session: RecordedSession = {
+        ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
+        title: options.title,
+        startUrl: options.startUrl,
+        actions: [{ type: "goto", url: options.startUrl }],
+      };
+      return Promise.resolve({ session, finished: true, steps: 1 } satisfies DriveResult);
+    };
+    const config: ProofkeeperConfig = {
+      capabilities: [{ id: "REQ-B", paths: ["src/b/**"], url: "http://b/", persona: "viewer" }],
+      personas: [{ name: "viewer", testFocus: ["dashboards"], cannotDo: ["edit-settings"] }],
+    };
+    const deps: ScopedQaDeps = { drive: capturingDrive, makeCompiler: () => new FakeCompiler(), makeRunner: () => new FakeRunner("passed") };
+    await runScopedQa(deps, { graph: GRAPH, config, changedPaths: ["src/b/y.ts"], targetName: "local", n: 1 });
+
+    expect(goals["REQ-B"]).toContain("Act as the viewer persona");
+    expect(goals["REQ-B"]).toContain("Focus on: dashboards");
+    expect(goals["REQ-B"]).toContain("Do not: edit-settings");
+  });
+
+  it("records an error for a capability referencing an undefined persona", async () => {
+    const config: ProofkeeperConfig = {
+      capabilities: [{ id: "REQ-B", paths: ["src/b/**"], url: "http://b/", persona: "ghost" }],
+      personas: [{ name: "viewer" }],
+    };
+    const deps: ScopedQaDeps = { drive: fakeDrive([]), makeCompiler: () => new FakeCompiler(), makeRunner: () => new FakeRunner("passed") };
+    const result = await runScopedQa(deps, { graph: GRAPH, config, changedPaths: ["src/b/y.ts"], targetName: "local", n: 1 });
+    expect(result.driven[0]?.error).toMatch(/undefined persona 'ghost'/);
+    expect(result.driven[0]?.result).toBeUndefined();
+  });
+
   it("mints an isolated compiler and runner per capability", async () => {
     const compilerIds: string[] = [];
     const runnerIds: string[] = [];

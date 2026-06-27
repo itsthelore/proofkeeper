@@ -17,7 +17,7 @@ import type { Compiler } from "../compiler/types.js";
 import type { Runner } from "../runner/types.js";
 import type { WriteBackProposer } from "../writeback/proposer.js";
 import type { LearningStore } from "../learning/store.js";
-import { resolveTarget, authContext, type ProofkeeperConfig } from "../scope/config.js";
+import { resolveTarget, authContext, personaContext, type ProofkeeperConfig } from "../scope/config.js";
 import { scopeCapabilities, type ScopedCapability, type ScopeResult } from "../scope/diff-scope.js";
 
 /** Default capabilities driven at once — conservative to bound browser/runner load. */
@@ -88,8 +88,15 @@ export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions):
         return { capability: cap, error: "no start URL — set config.url, an environment, or pass --url" };
       }
 
-      // Thread environment restrictions and the auth context into the goal.
+      // Thread persona, environment restrictions, and auth context into the goal.
       const contextParts: string[] = [];
+      let persona: string | undefined;
+      try {
+        persona = personaContext(options.config, cap.config);
+      } catch (err) {
+        return { capability: cap, error: (err as Error).message };
+      }
+      if (persona) contextParts.push(persona);
       if (target.restrictions.length > 0) {
         contextParts.push(`Environment restrictions: ${target.restrictions.join("; ")}. Respect them strictly.`);
       }

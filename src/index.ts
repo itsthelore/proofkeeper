@@ -60,12 +60,13 @@ export type { ScopedQaDeps, ScopedQaOptions, ScopedQaResult, ScopedCapabilityRes
 export { mapPool } from "./qa/concurrency.js";
 export { scopeCapabilities } from "./scope/diff-scope.js";
 export type { ScopeResult, ScopedCapability } from "./scope/diff-scope.js";
-export { parseConfig, ConfigParseError, resolveTarget, authContext } from "./scope/config.js";
+export { parseConfig, ConfigParseError, resolveTarget, authContext, personaContext } from "./scope/config.js";
 export type {
   ProofkeeperConfig,
   CapabilityConfig,
   EnvironmentConfig,
   AuthConfig,
+  PersonaConfig,
   ResolvedTarget,
 } from "./scope/config.js";
 export { globToRegExp, matchesAnyGlob } from "./scope/glob.js";
