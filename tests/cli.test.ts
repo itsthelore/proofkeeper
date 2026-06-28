@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { main } from "../src/cli.js";
@@ -93,5 +94,26 @@ describe("proofkeeper usage errors (exit 2)", () => {
     out.restore();
     expect(code).toBe(0);
     expect(out.calls.join("")).toContain("Usage:");
+  });
+});
+
+describe("proofkeeper --version", () => {
+  it("prints the package version and exits 0", async () => {
+    const out = captureStdout();
+    const code = await main(["--version"]);
+    out.restore();
+    expect(code).toBe(0);
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    };
+    expect(out.calls.join("").trim()).toBe(pkg.version);
+  });
+
+  it("supports the -v alias", async () => {
+    const out = captureStdout();
+    const code = await main(["-v"]);
+    out.restore();
+    expect(code).toBe(0);
+    expect(out.calls.join("").trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
