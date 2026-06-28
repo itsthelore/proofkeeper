@@ -1,12 +1,15 @@
 name: Release
 
 # Publishes @itsthelore/proofkeeper to npm when a GitHub Release is published.
-# Cut a release whose tag is the CalVer version (ADR-076). NOTE: npm requires
-# strict SemVer, which forbids leading zeros — use an UNPADDED month
-# (e.g. 2026.6.4), not the zero-padded 2026.06.4 form rac-core uses on PyPI.
 #
-# Requires a repository secret NPM_TOKEN: an npm automation / granular
-# publish token with publish access to the @itsthelore scope.
+# Author the version the itsthelore way: a zero-padded CalVer (YYYY.MM.N, e.g.
+# 2026.06.4, ADR-076) in package.json and the matching release tag. npm requires
+# strict SemVer, which forbids leading zeros, so this workflow strips the month
+# padding (2026.06.4 -> 2026.6.4) before publishing — the padded form stays the
+# authoritative version across the org; only the npm artifact is de-padded.
+#
+# Requires a repository secret NPM_TOKEN: an npm automation / granular publish
+# token with publish access to the @itsthelore scope.
 
 on:
   release:
@@ -29,19 +32,28 @@ jobs:
 
       - run: npm ci
 
-      - name: Verify package.json version matches the release tag
+      - name: Resolve version (verify tag == package.json, then de-pad for npm)
+        id: ver
         run: |
+          RAW="${GITHUB_REF_NAME#v}"
           PKG="$(node -p "require('./package.json').version")"
-          TAG="${GITHUB_REF_NAME#v}"
-          echo "package.json: $PKG | release tag: $TAG"
-          if [ "$PKG" != "$TAG" ]; then
-            echo "::error::package.json version ($PKG) does not match the release tag ($TAG). Bump the version, then re-cut the release."
+          echo "release tag: $RAW | package.json: $PKG"
+          if [ "$RAW" != "$PKG" ]; then
+            echo "::error::release tag ($RAW) does not match package.json version ($PKG). Bump package.json, then re-cut the release."
             exit 1
           fi
+          # Strip leading zeros from each dotted component (npm forbids them);
+          # keep a lone 0 as 0, leave non-padded numbers untouched.
+          NPM_VERSION="$(printf '%s' "$RAW" | awk -F. '{out=""; for(i=1;i<=NF;i++){f=$i; sub(/^0+/,"",f); if(f=="")f="0"; out=(i==1?f:out"."f)} print out}')"
+          echo "npm version: $NPM_VERSION"
+          echo "npm_version=$NPM_VERSION" >> "$GITHUB_OUTPUT"
 
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+      - name: Set the de-padded version for the npm artifact
+        run: npm pkg set version="${{ steps.ver.outputs.npm_version }}"
 
       - name: Publish to npm (public, with provenance)
         run: npm publish --provenance --access public

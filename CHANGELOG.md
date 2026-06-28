@@ -4,12 +4,13 @@ User-visible changes to Proofkeeper, by release. Follows the spirit of
 [Keep a Changelog](https://keepachangelog.com/): user impact over implementation
 details, release history over commit history.
 
-Releases use **CalVer** (`YYYY.M.N`, ADR-076) and are cut as GitHub Releases that
-publish `@itsthelore/proofkeeper` to npm with provenance. **npm requires strict
-SemVer, which forbids leading zeros** — so the npm version uses an *unpadded*
-month (e.g. `2026.6.4`), not the zero-padded `2026.06.4` form rac-core uses on
-PyPI. The release tag and `package.json` version must match exactly, or the
-release workflow fails the publish.
+Releases use **CalVer** (`YYYY.MM.N`, ADR-076) and are cut as GitHub Releases
+that publish `@itsthelore/proofkeeper` to npm with provenance. Author the
+**zero-padded** form (e.g. `2026.06.4`) in `package.json` and the release tag,
+consistent with the rest of itsthelore; the release workflow strips the month
+padding to a valid npm version (`2026.6.4`) at publish, because npm's strict
+SemVer forbids leading zeros. The release tag and `package.json` version must
+match exactly, or the workflow fails the publish.
 
 ## Unreleased
 
