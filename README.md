@@ -1,5 +1,14 @@
 # Proofkeeper
 
+<!--
+Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsthelore/lore-proofkeeper/main/docs/assets/proofkeeper-header-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/itsthelore/lore-proofkeeper/main/docs/assets/proofkeeper-header-light.png">
+  <img alt="Proofkeeper — the verification arm of Lore. A BYOK agent that drives your app and proves every capability with a real test." src="https://raw.githubusercontent.com/itsthelore/lore-proofkeeper/main/docs/assets/proofkeeper-header-light.png">
+</picture>
+-->
+
 <p align="center">
 <a href="#quickstart">Quickstart</a> ·
 <a href="#how-it-compares">How it compares</a> ·
@@ -10,6 +19,7 @@
 
 <p align="center">
 <a href="https://github.com/itsthelore/lore-proofkeeper/actions/workflows/ci.yml"><img src="https://github.com/itsthelore/lore-proofkeeper/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+<a href="https://www.npmjs.com/package/@itsthelore/proofkeeper"><img src="https://img.shields.io/npm/v/@itsthelore/proofkeeper" alt="npm"></a>
 <img src="https://img.shields.io/badge/node-%E2%89%A520-blue" alt="Node >= 20">
 <img src="https://img.shields.io/badge/types-TypeScript-blue.svg" alt="TypeScript">
 <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache 2.0"></a>
