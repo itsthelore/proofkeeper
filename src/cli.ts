@@ -32,6 +32,7 @@ import { scaffoldConfig, renderScaffoldedConfig } from "./scaffold/scaffold.js";
 
 import { execFile } from "node:child_process";
 import { readFile, writeFile, stat } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -103,6 +104,7 @@ Write-back: --propose needs a GitHub token in GITHUB_TOKEN.
 
 Options:
   --help, -h            Show this help.
+  --version, -v         Print the version.
 
 Exit codes:
   0  success (everything verified, or the driven test is stable)
@@ -696,12 +698,25 @@ async function runScopedCommand(argv: string[]): Promise<number> {
 // dispatch
 // ---------------------------------------------------------------------------
 
+/** The package version, read from the bundled package.json (works from dist/ and via tsx). */
+function readVersion(): string {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+    version?: string;
+  };
+  return pkg.version ?? "0.0.0";
+}
+
 export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
 
   if (command === "--help" || command === "-h" || command === undefined) {
     process.stdout.write(USAGE);
     return command === undefined ? EXIT_USAGE : EXIT_OK;
+  }
+
+  if (command === "--version" || command === "-v") {
+    process.stdout.write(readVersion() + "\n");
+    return EXIT_OK;
   }
 
   try {
