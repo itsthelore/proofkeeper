@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -36,6 +37,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/itsthelore/lore-proofkeeper.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.105.0",

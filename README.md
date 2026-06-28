@@ -14,7 +14,8 @@ Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
 <a href="#how-it-compares">How it compares</a> ·
 <a href="#how-it-works">How it works</a> ·
 <a href="#write-back">Write-back</a> ·
-<a href="#origin">Origin</a>
+<a href="#origin">Origin</a> ·
+<a href="./CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">
