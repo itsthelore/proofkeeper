@@ -1,0 +1,49 @@
+name: Release
+
+# Publishes @itsthelore/proofkeeper to npm when a GitHub Release is published.
+# Cut a release whose tag is the CalVer version (ADR-076). NOTE: npm requires
+# strict SemVer, which forbids leading zeros — use an UNPADDED month
+# (e.g. 2026.6.4), not the zero-padded 2026.06.4 form rac-core uses on PyPI.
+#
+# Requires a repository secret NPM_TOKEN: an npm automation / granular
+# publish token with publish access to the @itsthelore scope.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Verify package.json version matches the release tag
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "package.json: $PKG | release tag: $TAG"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::package.json version ($PKG) does not match the release tag ($TAG). Bump the version, then re-cut the release."
+            exit 1
+          fi
+
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Publish to npm (public, with provenance)
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
