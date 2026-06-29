@@ -12,26 +12,24 @@ padding to a valid npm version (`2026.6.4`) at publish, because npm's strict
 SemVer forbids leading zeros. The release tag and `package.json` version must
 match exactly, or the workflow fails the publish.
 
-## Unreleased
+## 2026.06.0 — the "first proof" release
 
-The `v0.0.1` prototype, accumulated ahead of the first CalVer release:
+The first cut of **Proofkeeper** — the open-source autonomous-QA agent for [Lore](https://github.com/itsthelore/rac-core), and the OSS answer to Factory's DROID, **bounded to verification**. Hand it real developer tools — a **browser, a terminal, and HTTP** — and **your own model**, and it drives your product to prove each capability works, then leaves **durable, re-runnable evidence** in a pull request. It does in the open what DROID's autonomous-QA half does behind closed doors. Lore records *what* your product should do (requirements as code); Proofkeeper proves it does, and proposes the evidence back for human review (ADR-083).
 
-- **Coverage read-model.** `proofkeeper coverage` reports which Lore capabilities
-  have no verifying `verified_by` test, read deterministically from
-  `rac export --graph`.
-- **Autonomous drive, BYO-model.** An agent loop drives the product with a
-  **browser, a terminal, and HTTP** (ADR-083, ADR-085), recording only what
-  succeeds. No model is bundled; bring your own `ModelClient` (an optional Claude
-  adapter ships in the box).
-- **Session → test compiler + fidelity gate.** The recorded session compiles to a
-  deterministic Playwright `.spec.ts`, kept only after N green re-runs.
-- **`qa` / `verify` command** runs the whole loop behind one entry point, with a
-  PR-triggered, diff-scoped mode that drives touched capabilities concurrently and
-  posts the evidence as a single in-place pull-request comment.
-- **`## Verified By` write-back** proposes linking a stable test to the capability
-  it verifies through a human-reviewed pull request (ADR-065) — never a direct
-  write.
-- **`init` scaffolding, environments/auth, personas, and failure-learning** round
-  out config-driven, PR-triggered QA.
-- **Release automation.** A published GitHub Release builds, type-checks, tests,
-  and publishes the package to npm with provenance.
+DROID, Devin, and the rest hand you a watch-once recording or a one-off review pass. Proofkeeper hands you a **committed Playwright test and an interactive trace, gated on fidelity** — proof you re-run, not a video you rewatch.
+
+The full drive → compile → fidelity → run → write-back loop, in this first release:
+
+- **Know what's unverified before you spend a token.** `proofkeeper coverage` reads `rac export --graph` and reports which Lore capabilities have no verifying test — no browser, no model, exact and reproducible. It exits non-zero when anything is unverified, so it gates cleanly in CI.
+
+- **Drives like DROID, on the model you choose.** DROID's tool surface in the open — a **browser, a terminal, and HTTP** (ADR-083, ADR-085) — driven by *your* model. None is bundled; an optional Claude adapter ships in the box. The agent records only what succeeds.
+
+- **A passing session becomes a test that keeps passing.** The recorded session compiles to a deterministic Playwright `.spec.ts`, kept only after N green re-runs — the fidelity gate. That faithful session→test conversion, backed by a re-runnable test and an interactive trace, is the moat the proprietary agents don't give you.
+
+- **The whole loop behind one command.** `proofkeeper qa` (alias `verify`) selects an unverified capability, drives, compiles, fidelity-gates, runs, and optionally proposes the write-back. Point it at a pull request with `--config` and it drives the capabilities the change touches — concurrently, context-isolated — and posts the evidence as one comment that updates in place.
+
+- **Evidence lands by PR, never by fiat.** When a test is stable, Proofkeeper links it to the capability it verifies by opening a **human-reviewed pull request** that proposes a `## Verified By` section (ADR-065, ADR-084) — never a direct write. The PR carries a readable step summary and a `playwright show-trace` hint; once merged, the artifact validates clean against the engine and flips the capability to verified.
+
+- **Configured from your graph, not from scratch.** `proofkeeper init` scaffolds a `proofkeeper.config.json` straight from the graph. The config drives named **environments** (restrictions + auth method), **personas** (roles), and a **failure-learning** strategy that surfaces recorded failure modes in the PR comment.
+
+And it stays in its lane: **verification evidence, nothing else**. The other half of DROID — PR code review, codegen — is deliberately out of scope, owned by sibling Lore products (ADR-083). Proofkeeper dogfoods itself, too: `proofkeeper coverage --corpus lore-proofkeeper/` reports its own capabilities green.
