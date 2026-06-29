@@ -110,6 +110,8 @@ proofkeeper coverage --corpus path/to/rac/ --json     # shell out to rac; machin
 
 Exit codes are a stable contract: `0` everything verified, `1` one or more unverified (gates cleanly in CI), `2` usage error.
 
+Proofkeeper targets `rac export --graph` **schema_version 1** (ADR-007). A graph that declares a different version is refused with a clear error rather than parsed best-effort; a graph that omits the field is tolerated.
+
 ## Verify a capability
 
 `proofkeeper qa` (alias `verify`) runs the whole loop behind one command: pick an unverified capability → drive → compile → fidelity → run → optionally propose the write-back. With `--config`, it scopes to a pull request — driving every unverified capability the changed files touch, concurrently and context-isolated, and posting the evidence as a single comment that updates in place.

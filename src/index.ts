@@ -7,7 +7,7 @@
  */
 
 // Coverage read-model (Initiative 1) — the working surface.
-export { parseGraph, GraphParseError, VERIFIED_BY } from "./coverage/graph.js";
+export { parseGraph, GraphParseError, VERIFIED_BY, SUPPORTED_GRAPH_SCHEMA } from "./coverage/graph.js";
 export type { Graph, GraphNode, GraphEdge } from "./coverage/graph.js";
 export { computeCoverage, CAPABILITY_TYPE } from "./coverage/model.js";
 export type { CoverageReport, CapabilityCoverage } from "./coverage/model.js";

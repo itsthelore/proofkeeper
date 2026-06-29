@@ -14,6 +14,14 @@
 /** The edge kind Proofkeeper's coverage signal keys on (ADR-084). */
 export const VERIFIED_BY = "verified_by";
 
+/**
+ * The `rac export --graph` `schema_version` Proofkeeper consumes. The engine
+ * bumps this only on a breaking contract change (ADR-007), so a graph that
+ * declares a different version is refused rather than parsed best-effort. A
+ * graph that omits the field is tolerated (loose/older inputs).
+ */
+export const SUPPORTED_GRAPH_SCHEMA = "1";
+
 /** A classified corpus artifact. Capabilities are nodes of type `requirement`. */
 export interface GraphNode {
   id: string;
@@ -112,8 +120,17 @@ export function parseGraph(json: string): Graph {
   if (!Array.isArray(raw["edges"])) {
     throw new GraphParseError("graph export is missing an `edges` array");
   }
+  // Tolerate a missing schema_version (older/loose inputs), but refuse a
+  // present-but-unsupported one rather than emit possibly-wrong coverage.
+  const schemaVersion = typeof raw["schema_version"] === "string" ? raw["schema_version"] : "";
+  if (schemaVersion !== "" && schemaVersion !== SUPPORTED_GRAPH_SCHEMA) {
+    throw new GraphParseError(
+      `unsupported rac graph schema_version '${schemaVersion}' ` +
+        `(Proofkeeper supports '${SUPPORTED_GRAPH_SCHEMA}') — update Proofkeeper, or check your rac version.`,
+    );
+  }
   return {
-    schema_version: typeof raw["schema_version"] === "string" ? raw["schema_version"] : "",
+    schema_version: schemaVersion,
     source: typeof raw["source"] === "string" ? raw["source"] : "",
     nodes: raw["nodes"].map(parseNode),
     edges: raw["edges"].map(parseEdge),
