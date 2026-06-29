@@ -1,6 +1,7 @@
 name: Release
 
-# Publishes @itsthelore/proofkeeper to npm when a GitHub Release is published.
+# Publishes @itsthelore/proofkeeper to npm when a GitHub Release is published,
+# using npm Trusted Publishing (OIDC) — no long-lived token.
 #
 # Author the version the itsthelore way: a zero-padded CalVer (YYYY.MM.N, e.g.
 # 2026.06.4, ADR-076) in package.json and the matching release tag. npm requires
@@ -8,8 +9,11 @@ name: Release
 # padding (2026.06.4 -> 2026.6.4) before publishing — the padded form stays the
 # authoritative version across the org; only the npm artifact is de-padded.
 #
-# Requires a repository secret NPM_TOKEN: an npm automation / granular publish
-# token with publish access to the @itsthelore scope.
+# One-time setup on npmjs.com (the package must already exist — do the first
+# publish with a token, then switch to this): on the @itsthelore/proofkeeper
+# package, add a Trusted Publisher with Organization "itsthelore", Repository
+# "proofkeeper", Workflow filename "release.yml", Allowed action "npm publish".
+# No NPM_TOKEN secret is needed — OIDC handles auth and provenance is automatic.
 
 on:
   release:
@@ -17,7 +21,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for npm provenance
+  id-token: write # required for npm Trusted Publishing (OIDC) + automatic provenance
 
 jobs:
   publish:
@@ -27,8 +31,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24 # Trusted Publishing needs Node >= 22.14 / npm >= 11.5.1
           registry-url: https://registry.npmjs.org
+
+      # Guarantee npm >= 11.5.1 regardless of the version bundled with Node.
+      - run: npm install -g npm@latest
 
       - run: npm ci
 
@@ -55,7 +62,5 @@ jobs:
       - name: Set the de-padded version for the npm artifact
         run: npm pkg set version="${{ steps.ver.outputs.npm_version }}"
 
-      - name: Publish to npm (public, with provenance)
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm (Trusted Publishing / OIDC; provenance automatic)
+        run: npm publish --access public
