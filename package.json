@@ -36,7 +36,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/itsthelore/lore-proofkeeper.git"
+    "url": "https://github.com/itsthelore/proofkeeper.git"
   },
   "publishConfig": {
     "access": "public"

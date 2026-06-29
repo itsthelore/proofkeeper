@@ -2,7 +2,7 @@
 
 Captured while building the `## Verified By` write-back. Comparison against
 Devin's *testing & recordings* and Factory's docs, plus future roadmap items
-those surfaced. These are notes for the eventual `itsthelore/lore-proofkeeper`
+those surfaced. These are notes for the eventual `itsthelore/proofkeeper`
 roadmap series, not committed scope.
 
 ## Comparison
