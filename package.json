@@ -1,6 +1,6 @@
 {
   "name": "@itsthelore/proofkeeper",
-  "version": "0.0.1",
+  "version": "2026.06.0",
   "description": "Lore Proofkeeper — an autonomous QA agent that drives a product, compiles the session into durable Playwright tests, gates them on fidelity, and reports which Lore capabilities are unverified.",
   "license": "Apache-2.0",
   "type": "module",
