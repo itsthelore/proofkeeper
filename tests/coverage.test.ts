@@ -46,6 +46,17 @@ describe("parseGraph", () => {
   it("rejects a graph missing the edges array", () => {
     expect(() => parseGraph(JSON.stringify({ nodes: [] }))).toThrow(/missing an `edges` array/);
   });
+
+  it("rejects an unsupported schema_version", () => {
+    expect(() =>
+      parseGraph(JSON.stringify({ schema_version: "2", source: "x", nodes: [], edges: [] })),
+    ).toThrow(/unsupported rac graph schema_version '2'/);
+  });
+
+  it("tolerates a graph that omits schema_version", () => {
+    const graph = parseGraph(JSON.stringify({ source: "x", nodes: [], edges: [] }));
+    expect(graph.schema_version).toBe("");
+  });
 });
 
 describe("computeCoverage", () => {
