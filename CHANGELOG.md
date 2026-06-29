@@ -12,6 +12,12 @@ padding to a valid npm version (`2026.6.4`) at publish, because npm's strict
 SemVer forbids leading zeros. The release tag and `package.json` version must
 match exactly, or the workflow fails the publish.
 
+## 2026.06.1 — the "contract guard" release
+
+Hardens the one dependency that matters: the Lore contract. Proofkeeper consumes rac-core only through the published `rac export --graph` contract, and now **checks the graph's `schema_version`** against the version it supports. A graph that declares an unsupported version is **refused with a clear, actionable error** instead of parsed best-effort; a graph that omits the field is tolerated. The supported version is documented and exported as `SUPPORTED_GRAPH_SCHEMA`. Per ADR-007 the engine bumps `schema_version` only on a breaking change, so this turns "should be compatible" into an explicit, checked guarantee — no silent, wrong coverage.
+
+Behind the scenes, releases now publish to npm via **Trusted Publishing (OIDC)** — no long-lived token.
+
 ## 2026.06.0 — the "first proof" release
 
 The first cut of **Proofkeeper** — the open-source autonomous-QA agent for [Lore](https://github.com/itsthelore/rac-core), and the OSS answer to Factory's DROID, **bounded to verification**. Hand it real developer tools — a **browser, a terminal, and HTTP** — and **your own model**, and it drives your product to prove each capability works, then leaves **durable, re-runnable evidence** in a pull request. It does in the open what DROID's autonomous-QA half does behind closed doors. Lore records *what* your product should do (requirements as code); Proofkeeper proves it does, and proposes the evidence back for human review (ADR-083).
