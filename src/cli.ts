@@ -84,6 +84,7 @@ qa options:
   --max-steps <count>   Cap on model turns during the drive.
   --out-dir <dir>       Where the compiled .spec.ts is written (default: tests/generated).
   --plan                Emit a Markdown test plan before driving; show it in the PR.
+  --extension <dir>     Load an unpacked browser extension for the drive (extension verification).
   --propose             Propose a Verified By write-back PR when the test is stable.
   --target-path <path>  Artifact to write back to (required with --propose).
   --repo <owner/name>   Target repository for the write-back (required with --propose).
@@ -270,6 +271,7 @@ export interface QaArgs {
   maxSteps?: number;
   outDir: string;
   plan: boolean;
+  extensionPath?: string;
   propose: boolean;
   targetPath?: string;
   base?: string;
@@ -326,6 +328,9 @@ export function parseQaArgs(argv: string[]): QaArgs {
       case "--plan":
         raw.plan = true;
         break;
+      case "--extension":
+        raw.extensionPath = requireValue(argv[++i], "--extension");
+        break;
       case "--propose":
         raw.propose = true;
         break;
@@ -370,6 +375,7 @@ export function parseQaArgs(argv: string[]): QaArgs {
     ...(raw.maxSteps !== undefined ? { maxSteps: raw.maxSteps } : {}),
     outDir: raw.outDir ?? "tests/generated",
     plan: raw.plan ?? false,
+    ...(raw.extensionPath !== undefined ? { extensionPath: raw.extensionPath } : {}),
     propose: raw.propose ?? false,
     ...(raw.targetPath !== undefined ? { targetPath: raw.targetPath } : {}),
     ...(raw.base !== undefined ? { base: raw.base } : {}),
@@ -405,6 +411,30 @@ function resolveModel(): ModelClient {
 function browserDrive(model: ModelClient): (options: DriveOptions) => Promise<DriveResult> {
   return async (options) => {
     const { chromium } = await import("@playwright/test");
+
+    // Extension verification needs a persistent context with the unpacked
+    // extension loaded (a plain launch() never loads one); the ID is rediscovered
+    // from the MV3 service worker and surfaced to the model.
+    if (options.extensionPath !== undefined) {
+      const { resolve } = await import("node:path");
+      const { loadExtension } = await import("./agent/extension.js");
+      const dir = resolve(options.extensionPath);
+      // `channel: "chromium"` selects Chromium's new headless, the only headless
+      // mode that loads extensions (old headless never has); pure headed needs a
+      // display. This is Playwright's documented extension recipe.
+      const context = await chromium.launchPersistentContext("", {
+        channel: "chromium",
+        args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`],
+      });
+      try {
+        const extension = await loadExtension(context);
+        const page = context.pages()[0] ?? (await context.newPage());
+        return await new AutonomousDriver(page, model, { ...options, extension }).drive();
+      } finally {
+        await context.close();
+      }
+    }
+
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage();
@@ -446,6 +476,7 @@ async function runQaCommand(argv: string[]): Promise<number> {
     ...(args.capability !== undefined ? { capabilityId: args.capability } : {}),
     startUrl: args.url,
     ...(args.goal !== undefined ? { goal: args.goal } : {}),
+    ...(args.extensionPath !== undefined ? { extensionPath: args.extensionPath } : {}),
     target,
     n: args.n,
     ...(args.maxSteps !== undefined ? { maxSteps: args.maxSteps } : {}),

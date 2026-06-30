@@ -40,6 +40,8 @@ export interface EnvironmentConfig {
   url: string;
   /** Human-readable directives the drive must respect (e.g. "read-only; never create data"). */
   restrictions?: string[];
+  /** Unpacked browser-extension directory to load for the drive (extension verification). */
+  extensionPath?: string;
 }
 
 /** How the product authenticates — described, never the credentials themselves. */
@@ -76,6 +78,8 @@ export interface ResolvedTarget {
   name: string;
   url: string;
   restrictions: string[];
+  /** Unpacked extension dir for the drive, when the target declares one. */
+  extensionPath?: string;
 }
 
 /** Raised when the config is not a recognizable shape. */
@@ -143,6 +147,13 @@ function parseEnvironments(raw: unknown): Record<string, EnvironmentConfig> {
         throw new ConfigParseError(`environment '${name}'.restrictions must be an array of strings`);
       }
       env.restrictions = restrictions as string[];
+    }
+    const extensionPath = value["extensionPath"];
+    if (extensionPath !== undefined) {
+      if (typeof extensionPath !== "string" || extensionPath === "") {
+        throw new ConfigParseError(`environment '${name}'.extensionPath must be a non-empty string`);
+      }
+      env.extensionPath = extensionPath;
     }
     out[name] = env;
   }
@@ -216,7 +227,12 @@ export function resolveTarget(
   const envName = cap.environment ?? config.defaultTarget;
   const env = envName !== undefined ? config.environments?.[envName] : undefined;
   if (env) {
-    return { name: envName!, url: env.url, restrictions: env.restrictions ?? [] };
+    return {
+      name: envName!,
+      url: env.url,
+      restrictions: env.restrictions ?? [],
+      ...(env.extensionPath !== undefined ? { extensionPath: env.extensionPath } : {}),
+    };
   }
   if (opts.fallbackUrl !== undefined) {
     return { name: opts.defaultName, url: opts.fallbackUrl, restrictions: [] };

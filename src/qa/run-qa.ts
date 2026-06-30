@@ -89,6 +89,8 @@ export interface QaOptions {
   plan?: boolean;
   /** Extra context appended to the goal (e.g. environment restrictions, auth). */
   goalContext?: string;
+  /** Unpacked extension dir to load for the drive (browser-extension verification). */
+  extensionPath?: string;
   /** When set (and a proposer is wired), propose a Verified By write-back. */
   propose?: { targetPath: string; baseBranch?: string };
 }
@@ -124,6 +126,7 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
     ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
     ...(prior.length > 0 ? { priorFailures: prior.map((f) => f.reason) } : {}),
     ...(options.plan ? { plan: true } : {}),
+    ...(options.extensionPath !== undefined ? { extensionPath: options.extensionPath } : {}),
   };
   const drive = await deps.drive(driveOptions);
 

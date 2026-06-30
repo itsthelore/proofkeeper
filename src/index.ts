@@ -99,6 +99,8 @@ export {
 export type { DriveTool, RunCommandArgs, OutputAssertionArgs, RequestArgs, ExpectJsonArgs } from "./agent/tools.js";
 export { observePage, renderObservation, createPageMonitor } from "./agent/observe.js";
 export type { PageObservation, PageMonitor } from "./agent/observe.js";
+export { loadExtension, extensionIdFromUrl } from "./agent/extension.js";
+export type { LoadedExtension } from "./agent/extension.js";
 
 // Reference BYO-model adapter (optional — Anthropic Claude API).
 export {
