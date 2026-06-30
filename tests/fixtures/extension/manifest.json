@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Proofkeeper Test Extension",
+  "version": "1.0.0",
+  "description": "A minimal MV3 extension used by Proofkeeper's extension-verification tests.",
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html" }
+}

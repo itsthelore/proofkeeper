@@ -53,12 +53,25 @@ function outputMatchStmt(action: Extract<Action, { type: "expectOutput" }>): str
   }
 }
 
-function actionStmt(action: Action, startUrl: string): string {
+/**
+ * Emit a `goto`. In extension mode a `chrome-extension://<recorded-id>/path` URL
+ * is rewritten to use the runtime-discovered `extId`, since the ID is regenerated
+ * on every load — the recorded ID would never match on re-run.
+ */
+function gotoStmt(url: string, startUrl: string, extensionMode: boolean): string {
+  if (url === startUrl) return `await page.goto(BASE);`;
+  if (extensionMode && url.startsWith("chrome-extension://")) {
+    const u = new URL(url);
+    const path = `${u.pathname}${u.search}${u.hash}`;
+    return `await page.goto(\`chrome-extension://\${extId}${path}\`);`;
+  }
+  return `await page.goto(${lit(url)});`;
+}
+
+function actionStmt(action: Action, startUrl: string, extensionMode: boolean): string {
   switch (action.type) {
     case "goto":
-      return action.url === startUrl
-        ? `await page.goto(BASE);`
-        : `await page.goto(${lit(action.url)});`;
+      return gotoStmt(action.url, startUrl, extensionMode);
     case "click":
       return `await ${locatorExpr(action.locator)}.click();`;
     case "fill":
@@ -136,9 +149,10 @@ export function emitSpec(session: RecordedSession): string {
     : "";
   const terminal = usesTerminal(session);
   const http = usesHttp(session);
+  const extensionMode = session.extensionPath !== undefined;
 
   const imports = [
-    `import { expect, test } from "@playwright/test";`,
+    `import { ${extensionMode ? "chromium, " : ""}expect, test } from "@playwright/test";`,
     ...(terminal ? [`import { spawnSync } from "node:child_process";`] : []),
   ].join("\n");
 
@@ -162,19 +176,52 @@ function jsonPath(obj, path) {
     : "";
   const helper = `${terminalHelper}${httpHelper}`;
 
+  const indent = extensionMode ? "    " : "  ";
   const firstStmt =
-    (terminal ? `  let last: { stdout: string; stderr: string; code: number };\n` : "") +
-    (http ? `  let httpRes: { status: number; body: string };\n` : "");
+    (terminal ? `${indent}let last: { stdout: string; stderr: string; code: number };\n` : "") +
+    (http ? `${indent}let httpRes: { status: number; body: string };\n` : "");
   const body = session.actions
-    .map((a) => `  ${actionStmt(a, session.startUrl)}`)
+    .map((a) => `${indent}${actionStmt(a, session.startUrl, extensionMode)}`)
     .join("\n");
 
-  return `// Compiled by Lore Proofkeeper from a recorded drive session${provenance}.
+  const header = `// Compiled by Lore Proofkeeper from a recorded drive session${provenance}.
 // Do not edit by hand: re-compile the session to regenerate. Deterministic
 // (no timestamps) so it is stable to review and re-run.
 ${imports}
 
-const BASE = process.env.PROOFKEEPER_BASE_URL ?? ${lit(session.startUrl)};
+const BASE = process.env.PROOFKEEPER_BASE_URL ?? ${lit(session.startUrl)};`;
+
+  if (extensionMode) {
+    // The extension ID is regenerated on every load, so the spec re-loads the
+    // unpacked extension in a persistent context and rediscovers the ID from the
+    // MV3 service worker at run time — never a recorded ID.
+    const extPath = `\nconst EXTENSION_PATH = process.env.PROOFKEEPER_EXTENSION_PATH ?? ${lit(session.extensionPath!)};`;
+    return `${header}${extPath}
+${helper}
+test(${lit(session.title)}, async () => {
+  // channel: "chromium" selects the new headless mode — the only headless that
+  // loads extensions. Run with the bundled Chromium (npx playwright install chromium).
+  const context = await chromium.launchPersistentContext("", {
+    channel: "chromium",
+    args: [
+      \`--disable-extensions-except=\${EXTENSION_PATH}\`,
+      \`--load-extension=\${EXTENSION_PATH}\`,
+    ],
+  });
+  try {
+    let [worker] = context.serviceWorkers();
+    if (!worker) worker = await context.waitForEvent("serviceworker");
+    const extId = new URL(worker.url()).host;
+    const page = context.pages()[0] ?? (await context.newPage());
+${firstStmt}${body}
+  } finally {
+    await context.close();
+  }
+});
+`;
+  }
+
+  return `${header}
 ${helper}
 test(${lit(session.title)}, async ({ page }) => {
 ${firstStmt}${body}

@@ -50,6 +50,16 @@ export interface DriveOptions {
   priorFailures?: string[];
   /** When set, run a planning turn first and record a Markdown test plan. */
   plan?: boolean;
+  /**
+   * Unpacked extension dir loaded for this drive (browser-extension verification).
+   * Threaded into the recorded session so the emitted spec re-loads it.
+   */
+  extensionPath?: string;
+  /**
+   * The loaded extension's runtime ID and page base, when an extension is loaded.
+   * Surfaced to the model so it can navigate to the extension's pages.
+   */
+  extension?: { id: string; base: string };
 }
 
 export interface DriveResult {
@@ -78,7 +88,11 @@ interface Dispatch {
   detail?: string;
 }
 
-function systemPrompt(goal: string, priorFailures: string[] = []): string {
+function systemPrompt(
+  goal: string,
+  priorFailures: string[] = [],
+  extension?: { id: string; base: string },
+): string {
   const lines = [
     "You are Proofkeeper's autonomous QA agent. You drive a product like a",
     "developer to verify a capability, using only the provided tools — a browser",
@@ -89,6 +103,15 @@ function systemPrompt(goal: string, priorFailures: string[] = []): string {
     "",
     `Goal: ${goal}`,
   ];
+  if (extension) {
+    lines.push(
+      "",
+      `A browser extension is loaded (id ${extension.id}). Its pages live under`,
+      `${extension.base} — e.g. navigate to ${extension.base}popup.html or`,
+      `${extension.base}options.html to drive the extension's own UI, and visit`,
+      "ordinary web pages to verify its effect on them (content scripts).",
+    );
+  }
   if (priorFailures.length > 0) {
     lines.push(
       "",
@@ -180,6 +203,7 @@ export class AutonomousDriver {
       capabilityId: this.options.capabilityId,
       title: this.options.title,
       startUrl: this.options.startUrl,
+      ...(this.options.extensionPath !== undefined ? { extensionPath: this.options.extensionPath } : {}),
     });
 
     // Seed the session at the known entry point, then let the model take over.
@@ -196,7 +220,7 @@ export class AutonomousDriver {
       });
 
     const transcript: ModelRequest["transcript"] = [
-      { role: "system", content: systemPrompt(this.options.goal, this.options.priorFailures) },
+      { role: "system", content: systemPrompt(this.options.goal, this.options.priorFailures, this.options.extension) },
       {
         role: "user",
         content: `You are on the start page.\n\n${await observe()}`,

@@ -160,6 +160,7 @@ export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions):
         n: options.n,
         ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
         ...(options.plan ? { plan: true } : {}),
+        ...(target.extensionPath !== undefined ? { extensionPath: target.extensionPath } : {}),
         ...(propose ? { propose } : {}),
       });
       return { capability: cap, result };

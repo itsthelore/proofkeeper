@@ -45,6 +45,7 @@ jobs:
           tests/qa.integration.test.ts
           tests/plan.integration.test.ts
           tests/observe.integration.test.ts
+          tests/extension.integration.test.ts
         env:
           PROOFKEEPER_E2E: "1"
 

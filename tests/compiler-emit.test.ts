@@ -50,4 +50,56 @@ describe("emitSpec", () => {
   it("refuses to emit a test from a session with no actions", () => {
     expect(() => emitSpec({ ...session, actions: [] })).toThrow(/no recorded actions/);
   });
+
+  it("does not switch to extension mode for a normal session", () => {
+    const src = emitSpec(session);
+    expect(src).toContain(`async ({ page }) => {`);
+    expect(src).not.toContain("launchPersistentContext");
+    expect(src).not.toContain("chromium");
+  });
+});
+
+describe("emitSpec — browser-extension mode", () => {
+  const extSession: RecordedSession = {
+    capabilityId: "REQ-EXT",
+    title: "extension flips the badge",
+    startUrl: "http://localhost:3000/",
+    extensionPath: "./my-ext",
+    actions: [
+      { type: "goto", url: "http://localhost:3000/" },
+      { type: "goto", url: "chrome-extension://oldrecordedidoldrecordedid000000/popup.html" },
+      { type: "click", locator: { kind: "role", role: "button", name: "Enable" } },
+      { type: "expectText", locator: { kind: "testId", testId: "badge" }, text: "on" },
+    ],
+  };
+
+  it("launches a persistent context with the unpacked extension loaded", () => {
+    const src = emitSpec(extSession);
+    expect(src).toContain(`import { chromium, expect, test } from "@playwright/test";`);
+    expect(src).toContain(`test('extension flips the badge', async () => {`);
+    expect(src).toContain("chromium.launchPersistentContext");
+    expect(src).toContain(`channel: "chromium"`);
+    expect(src).toContain("--load-extension=${EXTENSION_PATH}");
+    expect(src).toContain("--disable-extensions-except=${EXTENSION_PATH}");
+    expect(src).toContain(`const EXTENSION_PATH = process.env.PROOFKEEPER_EXTENSION_PATH ?? './my-ext';`);
+  });
+
+  it("rediscovers the extension id at runtime and rewrites chrome-extension gotos", () => {
+    const src = emitSpec(extSession);
+    expect(src).toContain(`await context.waitForEvent("serviceworker")`);
+    expect(src).toContain("const extId = new URL(worker.url()).host;");
+    // The stale recorded id is never emitted; the goto uses the runtime extId.
+    expect(src).not.toContain("oldrecordedidoldrecordedid000000");
+    expect(src).toContain("await page.goto(`chrome-extension://${extId}/popup.html`);");
+  });
+
+  it("still maps the start URL to BASE and closes the context", () => {
+    const src = emitSpec(extSession);
+    expect(src).toContain("await page.goto(BASE);");
+    expect(src).toContain("await context.close();");
+  });
+
+  it("is deterministic in extension mode", () => {
+    expect(emitSpec(extSession)).toBe(emitSpec(extSession));
+  });
 });

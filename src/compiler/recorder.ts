@@ -21,6 +21,8 @@ export interface RecorderOptions {
   title: string;
   startUrl: string;
   capabilityId?: string;
+  /** Unpacked extension dir loaded for the drive; threaded to the session. */
+  extensionPath?: string;
 }
 
 export class Recorder {
@@ -162,6 +164,7 @@ export class Recorder {
       capabilityId: this.options.capabilityId,
       title: this.options.title,
       startUrl: this.options.startUrl,
+      ...(this.options.extensionPath !== undefined ? { extensionPath: this.options.extensionPath } : {}),
       actions: [...this.actions],
     };
   }
