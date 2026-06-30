@@ -40,7 +40,7 @@ Proofkeeper isn't a record-and-watch tool or an automated reviewer — it turns 
 | Re-runnable | yes — `npx playwright test` | no | n/a |
 | Flakiness handling | the **fidelity gate** (N green re-runs) | none | n/a |
 | Knowledge write-back | `## Verified By` via PR (ADR-084) | proposes a Skill via PR | AGENTS.md conventions |
-| Model | **bring your own** | bundled | bundled |
+| Model | **bring your own** — any OpenAI-compatible provider, or Claude | bundled | bundled |
 
 ## Quickstart
 
@@ -65,10 +65,13 @@ Proofkeeper isn't a record-and-watch tool or an automated reviewer — it turns 
 4. **Verify** a capability end-to-end — drive, compile, fidelity-gate, and (optionally) propose the write-back:
 
    ```bash
+   # Any OpenAI-compatible provider:
+   OPENAI_API_KEY=… proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
+   # …or the built-in Claude adapter:
    ANTHROPIC_API_KEY=… proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
    ```
 
-The bundled Claude adapter is used when `ANTHROPIC_API_KEY` is set; bring any other provider by calling `runQa()` from the library with your own `ModelClient`.
+Set `OPENAI_API_KEY` to drive on any OpenAI-compatible provider — override `OPENAI_BASE_URL` / `OPENAI_MODEL` for OpenRouter, Groq, Together, Ollama, vLLM, and the like — or `ANTHROPIC_API_KEY` for the built-in Claude adapter. Or bring any provider at all by calling `runQa()` from the library with your own `ModelClient`.
 
 ## Install
 
@@ -134,7 +137,34 @@ The PR carries readable evidence — a numbered step summary of the driven flow 
 
 ## Bring your own model
 
-Proofkeeper bundles no model — you implement `ModelClient` against your provider, or use the optional reference `ClaudeModelClient` (lazily imports `@anthropic-ai/sdk`).
+Proofkeeper bundles no model. Two built-in adapters cover most providers out of the box, and the `ModelClient` interface is there for anything else.
+
+**Any OpenAI-compatible provider** — `OpenAICompatibleModelClient` speaks the OpenAI `/chat/completions` format, which is shared by OpenAI, OpenRouter, Together, Groq, Fireworks, DeepSeek, Mistral, vLLM, and Ollama (`/v1`). It uses the platform `fetch`, so it needs **no extra dependency**. From the CLI, set `OPENAI_API_KEY` and (for non-OpenAI targets) `OPENAI_BASE_URL` / `OPENAI_MODEL`:
+
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-… proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
+
+# OpenRouter, Groq, a local Ollama / vLLM, … — just repoint the base URL and model:
+OPENAI_API_KEY=… OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_MODEL=… \
+  proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
+```
+
+Or construct it directly from the library:
+
+```ts
+import { OpenAICompatibleModelClient } from "@itsthelore/proofkeeper";
+
+const model = new OpenAICompatibleModelClient({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1", // any OpenAI-compatible endpoint
+  model: "meta-llama/llama-3.1-70b-instruct",
+});
+```
+
+**Claude** — the optional reference `ClaudeModelClient` (lazily imports `@anthropic-ai/sdk`) is selected from the CLI when `ANTHROPIC_API_KEY` is set.
+
+**Anything else** — implement `ModelClient` yourself and pass it to the driver:
 
 ```ts
 import { AutonomousDriver, CodegenCompiler, PlaywrightRunner, assessFidelity } from "@itsthelore/proofkeeper";

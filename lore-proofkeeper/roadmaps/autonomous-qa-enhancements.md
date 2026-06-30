@@ -52,6 +52,13 @@ context, instead of sequentially. Serves the fast-reliable-scoped-QA outcome.
 Feed recent console messages and network responses into the model's observation
 each turn. Serves the faithful-tests outcome.
 
+### OpenAI-compatible model adapter
+
+A built-in adapter that speaks the OpenAI `/chat/completions` format, so the CLI
+drives on any OpenAI-compatible provider (OpenAI, OpenRouter, Groq, Ollama, vLLM,
+…), not only the bundled Claude adapter. Makes bring-your-own-model real for any
+model from the CLI.
+
 ## Success Measures
 
 - A pull request shows exactly one Proofkeeper QA comment regardless of how many
