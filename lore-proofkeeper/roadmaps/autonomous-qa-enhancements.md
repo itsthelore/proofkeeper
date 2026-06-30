@@ -59,6 +59,13 @@ drives on any OpenAI-compatible provider (OpenAI, OpenRouter, Groq, Ollama, vLLM
 …), not only the bundled Claude adapter. Makes bring-your-own-model real for any
 model from the CLI.
 
+### Browser-extension verification
+
+Load an unpacked browser extension into a persistent context for the drive,
+rediscover its runtime ID, and emit a compiled test that re-loads the extension —
+so an extension's popup/options and page effects are verified end-to-end, not just
+ordinary web apps. Serves the faithful-tests outcome on a new surface.
+
 ## Success Measures
 
 - A pull request shows exactly one Proofkeeper QA comment regardless of how many
