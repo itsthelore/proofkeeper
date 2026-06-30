@@ -1,0 +1,39 @@
+name: Dogfooding
+
+# Proofkeeper verifies itself: run its own `coverage` command against its own
+# Lore corpus (lore-proofkeeper/) and fail if any capability is unverified. This
+# turns the dogfood signal into an enforced gate — the corpus can never drift
+# un-green. It exercises the real CLI and the real `rac export --graph` contract
+# path (ADR-063, ADR-083), not a bespoke checker.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  coverage:
+    name: self-coverage (proofkeeper verifies proofkeeper)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      # The `rac` engine is a contract dependency, not a package dependency:
+      # install it as an external CLI from rac-core (its distribution is
+      # "requirements-as-code"; the console script is `rac`). Proofkeeper consumes
+      # only its published `rac export --graph` JSON output.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install the rac engine (provides the `rac` CLI)
+        run: pip install "git+https://github.com/itsthelore/rac-core.git"
+
+      - name: Proofkeeper coverage over its own corpus (fails on any unverified)
+        run: node dist/cli.js coverage --corpus lore-proofkeeper/
