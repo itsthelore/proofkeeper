@@ -110,6 +110,17 @@ export {
 } from "./agent/adapters/claude.js";
 export type { ClaudeModelClientOptions, AnthropicLike } from "./agent/adapters/claude.js";
 
+// Built-in BYO-model adapter for any OpenAI Chat-Completions-compatible provider.
+export {
+  OpenAICompatibleModelClient,
+  DEFAULT_OPENAI_MODEL,
+  DEFAULT_OPENAI_BASE_URL,
+  toOpenAIMessages,
+  toOpenAITools,
+  fromOpenAIResponse,
+} from "./agent/adapters/openai.js";
+export type { OpenAICompatibleModelClientOptions, FetchLike } from "./agent/adapters/openai.js";
+
 // Write-back (Initiative 5 — propose-only, human-reviewed PR).
 export {
   renderVerifiedBySection,
