@@ -21,6 +21,7 @@ import { parseConfig, ConfigParseError } from "./scope/config.js";
 import { AutonomousDriver, type DriveOptions, type DriveResult } from "./agent/drive.js";
 import type { ModelClient } from "./agent/model.js";
 import { ClaudeModelClient } from "./agent/adapters/claude.js";
+import { OpenAICompatibleModelClient } from "./agent/adapters/openai.js";
 import { CodegenCompiler } from "./compiler/compiler.js";
 import { FileLearningStore } from "./learning/store.js";
 import { PlaywrightRunner } from "./runner/playwright-runner.js";
@@ -98,8 +99,10 @@ scoped qa options (with --config):
   --repo <owner/name>   Repository for write-backs and the PR comment.
   --pr <number>         Post the scoped-QA evidence comment on this pull request.
 
-Model: qa uses the bundled Claude adapter when ANTHROPIC_API_KEY is set. Bring a
-different provider by calling runQa() from the library with your own ModelClient.
+Model (bring your own): set OPENAI_API_KEY for any OpenAI-compatible provider
+(override OPENAI_BASE_URL / OPENAI_MODEL for OpenRouter, Groq, Ollama, vLLM, …),
+or ANTHROPIC_API_KEY for the built-in Claude adapter. Or call runQa() from the
+library with your own ModelClient.
 Write-back: --propose needs a GitHub token in GITHUB_TOKEN.
 
 Options:
@@ -374,12 +377,27 @@ export function parseQaArgs(argv: string[]): QaArgs {
   };
 }
 
-/** Resolve a model from the environment (bundled Claude adapter). */
+/**
+ * Resolve a model from the environment — bring your own.
+ *
+ * `ANTHROPIC_API_KEY` selects the built-in Claude adapter (kept first so existing
+ * setups are unaffected); otherwise `OPENAI_API_KEY` selects the OpenAI-compatible
+ * adapter, which drives any provider that speaks the OpenAI `/chat/completions`
+ * format (override `OPENAI_BASE_URL` / `OPENAI_MODEL` for OpenRouter, Groq,
+ * Ollama, vLLM, …).
+ */
 function resolveModel(): ModelClient {
   if (process.env.ANTHROPIC_API_KEY) return new ClaudeModelClient();
+  if (process.env.OPENAI_API_KEY) {
+    return new OpenAICompatibleModelClient({
+      ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
+      ...(process.env.OPENAI_MODEL ? { model: process.env.OPENAI_MODEL } : {}),
+    });
+  }
   throw new UsageError(
-    "qa needs a model: set ANTHROPIC_API_KEY to use the bundled Claude adapter, " +
-      "or call runQa() from the library with your own ModelClient.",
+    "qa needs a model: set OPENAI_API_KEY for any OpenAI-compatible provider " +
+      "(optionally OPENAI_BASE_URL / OPENAI_MODEL), or ANTHROPIC_API_KEY for the " +
+      "built-in Claude adapter, or call runQa() from the library with your own ModelClient.",
   );
 }
 
