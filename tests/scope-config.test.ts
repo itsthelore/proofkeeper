@@ -187,3 +187,32 @@ describe("failureLearning strategy", () => {
     ).toThrow(/failureLearning must be one of/);
   });
 });
+
+describe("environment extensionPath (browser-extension verification)", () => {
+  const withExt = (extensionPath: unknown) =>
+    parseConfig(
+      JSON.stringify({
+        capabilities: [{ id: "REQ-EXT", paths: ["x"], environment: "dev" }],
+        environments: { dev: { url: "https://dev/", extensionPath } },
+      }),
+    );
+
+  it("parses an environment extensionPath", () => {
+    expect(withExt("./my-ext").environments?.dev).toEqual({ url: "https://dev/", extensionPath: "./my-ext" });
+  });
+
+  it("rejects a non-string or empty extensionPath", () => {
+    expect(() => withExt(123)).toThrow(/extensionPath must be a non-empty string/);
+    expect(() => withExt("")).toThrow(/extensionPath must be a non-empty string/);
+  });
+
+  it("resolveTarget surfaces the environment's extensionPath", () => {
+    const cfg = withExt("./my-ext");
+    expect(resolveTarget(cfg, cfg.capabilities[0]!, { defaultName: "local" })).toEqual({
+      name: "dev",
+      url: "https://dev/",
+      restrictions: [],
+      extensionPath: "./my-ext",
+    });
+  });
+});
