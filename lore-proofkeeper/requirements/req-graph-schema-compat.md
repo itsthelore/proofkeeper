@@ -33,3 +33,7 @@ Proofkeeper consumes rac-core only through the published `rac export --graph` co
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/coverage.test.ts`

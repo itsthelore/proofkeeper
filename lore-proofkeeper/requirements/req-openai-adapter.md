@@ -37,3 +37,7 @@ Proofkeeper is bring-your-own-model by design (ADR-035, ADR-002): the drive loop
 ## Related Roadmaps
 
 - autonomous-qa-enhancements
+
+## Verified By
+
+- `tests/openai-adapter.test.ts`
