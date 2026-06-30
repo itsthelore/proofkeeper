@@ -66,6 +66,12 @@ rediscover its runtime ID, and emit a compiled test that re-loads the extension 
 so an extension's popup/options and page effects are verified end-to-end, not just
 ordinary web apps. Serves the faithful-tests outcome on a new surface.
 
+### Self-verification coverage gate
+
+A required CI job that runs `proofkeeper coverage` against Proofkeeper's own
+corpus and fails on any unverified capability, with a README badge — so the
+dogfood signal becomes an enforced guarantee that can never drift un-green.
+
 ## Success Measures
 
 - A pull request shows exactly one Proofkeeper QA comment regardless of how many
