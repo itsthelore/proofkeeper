@@ -49,6 +49,12 @@ export interface RecordedSession {
   title: string;
   /** Product entry point the session started from. */
   startUrl: string;
+  /**
+   * Unpacked browser-extension directory loaded for the drive, when verifying an
+   * extension. Set ⇒ the emitter produces a persistent-context spec that re-loads
+   * the extension and rediscovers its (non-deterministic) ID at run time.
+   */
+  extensionPath?: string;
   /** The recorded actions, in order. */
   actions: Action[];
   /**
