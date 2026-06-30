@@ -20,7 +20,7 @@ Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
 
 <p align="center">
 <a href="https://github.com/itsthelore/proofkeeper/actions/workflows/ci.yml"><img src="https://github.com/itsthelore/proofkeeper/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-<a href="https://github.com/itsthelore/proofkeeper/actions/workflows/dogfood.yml"><img src="https://img.shields.io/github/actions/workflow/status/itsthelore/proofkeeper/dogfood.yml?branch=main&label=dogfooding&logo=githubactions&logoColor=white" alt="Dogfooding: Proofkeeper verifies its own corpus"></a>
+<a href="https://github.com/itsthelore/proofkeeper/actions/workflows/dogfood.yml"><img src="https://img.shields.io/github/actions/workflow/status/itsthelore/proofkeeper/dogfood.yml?branch=main&label=Dogfood&logo=githubactions&logoColor=white" alt="Dogfood: Proofkeeper verifies its own corpus"></a>
 <a href="https://www.npmjs.com/package/@itsthelore/proofkeeper"><img src="https://img.shields.io/npm/v/@itsthelore/proofkeeper" alt="npm"></a>
 <img src="https://img.shields.io/badge/node-%E2%89%A520-blue" alt="Node >= 20">
 <img src="https://img.shields.io/badge/types-TypeScript-blue.svg" alt="TypeScript">
