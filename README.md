@@ -129,6 +129,26 @@ ANTHROPIC_API_KEY=… GITHUB_TOKEN=… proofkeeper qa \
 
 Pass `--plan` to have the model write a human-readable test plan before driving. The drive has a **browser, a terminal, and HTTP**: `run_command` / `expect_output` / `expect_exit` for CLI capabilities, and `request` / `expect_status` / `expect_json` for API capabilities — a session may interleave all three.
 
+## Testing a browser extension
+
+Point Proofkeeper at an **unpacked extension** and it loads it for the drive, so the model can exercise the extension's own pages (`chrome-extension://<id>/popup.html`, options) and its effect on ordinary pages (content scripts):
+
+```bash
+proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/ --extension ./my-extension
+```
+
+In a config, set it per environment:
+
+```json
+{
+  "environments": {
+    "dev": { "url": "http://localhost:3000/", "extensionPath": "./my-extension" }
+  }
+}
+```
+
+How it works: extensions load only in a **persistent context** (a plain launch never loads one), and an MV3 extension's ID is regenerated on every load. Proofkeeper launches with the extension via Chromium's **new headless** (`channel: "chromium"` — run `npx playwright install chromium`, not the headless shell), discovers the ID from the extension's service worker, and tells the model where its pages live. The **compiled test re-loads the extension and re-resolves the ID at run time**, so the committed spec and the fidelity gate verify the real extension — never a stale, recorded ID. Today this targets MV3 Chromium extensions; packed `.crx` and other browsers are out of scope.
+
 ## Write-back
 
 Once a test is stable, Proofkeeper proposes linking it to the capability it verifies by opening a **human-reviewed pull request** against the target's Lore corpus — it never commits the base branch (ADR-065). The `## Verified By` section records bare reference paths (the test and its replayable trace), so the engine's `verified_by` edge targets stay clean. Repository operations go through an injected `RepoGateway`, so there is no hard GitHub dependency.
