@@ -1,4 +1,4 @@
-name: Dogfooding
+name: Dogfood
 
 # Proofkeeper verifies itself: run its own `coverage` command against its own
 # Lore corpus (lore-proofkeeper/) and fail if any capability is unverified. This
