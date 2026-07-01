@@ -61,6 +61,7 @@ e2e("AutonomousDriver — a BYO model drives a CLI capability via the terminal",
         title: "cli prints the order number",
         startUrl: "about:blank",
         goal: "Run the CLI and confirm it prints the order number with exit 0.",
+        allowShell: true, // a terminal capability is an explicit operator opt-in
       });
 
       const { session, finished } = await driver.drive();

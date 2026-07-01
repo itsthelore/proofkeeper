@@ -101,6 +101,26 @@ describe("selectCapability", () => {
 });
 
 describe("runQa", () => {
+  it("threads the trust boundary into the drive (and leaves it closed by default)", async () => {
+    const captured: { options?: DriveOptions } = {};
+    const deps: QaDeps = { drive: fakeDrive(captured), compiler: new FakeCompiler(), runner: new FakeRunner("passed") };
+
+    await runQa(deps, { graph: GRAPH, startUrl: "http://x/", target: TARGET, n: 3 });
+    expect(captured.options?.allowShell).toBeUndefined();
+    expect(captured.options?.allowedHosts).toBeUndefined();
+
+    await runQa(deps, {
+      graph: GRAPH,
+      startUrl: "http://x/",
+      target: TARGET,
+      n: 3,
+      allowShell: true,
+      allowedHosts: ["api.example.com"],
+    });
+    expect(captured.options?.allowShell).toBe(true);
+    expect(captured.options?.allowedHosts).toEqual(["api.example.com"]);
+  });
+
   it("drives the selected capability with a derived title and goal", async () => {
     const captured: { options?: DriveOptions } = {};
     const deps: QaDeps = { drive: fakeDrive(captured), compiler: new FakeCompiler(), runner: new FakeRunner("passed") };
@@ -273,6 +293,27 @@ describe("parseQaArgs", () => {
 
   it("rejects a non-positive --n", () => {
     expect(() => parseQaArgs(["--graph-file", "g.json", "--url", "http://x/", "--n", "0"])).toThrow(/positive integer/);
+  });
+
+  it("defaults the trust boundary closed: no shell, no extra hosts", () => {
+    const args = parseQaArgs(["--graph-file", "g.json", "--url", "http://x/"]);
+    expect(args.allowShell).toBe(false);
+    expect(args.allowedHosts).toEqual([]);
+  });
+
+  it("parses --allow-shell and repeatable --allow-host", () => {
+    const args = parseQaArgs([
+      "--graph-file", "g.json", "--url", "http://x/",
+      "--allow-shell", "--allow-host", "api.example.com", "--allow-host", "cdn.example.com",
+    ]);
+    expect(args.allowShell).toBe(true);
+    expect(args.allowedHosts).toEqual(["api.example.com", "cdn.example.com"]);
+  });
+
+  it("requires a value for --allow-host", () => {
+    expect(() => parseQaArgs(["--graph-file", "g.json", "--url", "http://x/", "--allow-host"])).toThrow(
+      /--allow-host/,
+    );
   });
 
   it("requires --target-path and --repo with --propose", () => {
