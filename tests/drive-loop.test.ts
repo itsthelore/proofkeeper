@@ -125,3 +125,77 @@ describe("drive trust boundary in the loop", () => {
     expect(result.session.actions).toEqual([{ type: "goto", url: "http://x/" }]);
   });
 });
+
+describe("drive resilience", () => {
+  it("retries a transient model failure once and continues", async () => {
+    let calls = 0;
+    const flaky: ModelClient = {
+      complete: (): Promise<ModelResponse> => {
+        calls++;
+        if (calls === 1) return Promise.reject(new Error("502 upstream"));
+        return Promise.resolve({ toolCalls: [{ name: "finish", arguments: {} }] });
+      },
+    };
+    const result = await new AutonomousDriver(fakePage(), flaky, {
+      ...OPTIONS,
+      modelRetryBackoffMs: 0,
+    }).drive();
+
+    expect(result.finished).toBe(true);
+    expect(calls).toBe(2);
+  });
+
+  it("fails with both errors when the model call fails twice", async () => {
+    const dead: ModelClient = { complete: () => Promise.reject(new Error("502 upstream")) };
+    await expect(
+      new AutonomousDriver(fakePage(), dead, { ...OPTIONS, modelRetryBackoffMs: 0 }).drive(),
+    ).rejects.toThrow(/model call failed twice: 502 upstream; retry: 502 upstream/);
+  });
+
+  it("times out a stalled model call instead of hanging the drive", async () => {
+    const stalled: ModelClient = { complete: () => new Promise(() => undefined) };
+    await expect(
+      new AutonomousDriver(fakePage(), stalled, {
+        ...OPTIONS,
+        modelTimeoutMs: 20,
+        modelRetryBackoffMs: 0,
+      }).drive(),
+    ).rejects.toThrow(/timed out after 20ms/);
+  });
+
+  it("accumulates provider-reported token usage across turns", async () => {
+    const model = new ScriptedModel([
+      {
+        toolCalls: [{ name: "navigate", arguments: { url: "http://x/a" } }],
+        usage: { inputTokens: 100, outputTokens: 10 },
+      },
+      { toolCalls: [{ name: "finish", arguments: {} }], usage: { inputTokens: 200, outputTokens: 20 } },
+    ]);
+    const result = await new AutonomousDriver(fakePage(), model, OPTIONS).drive();
+
+    expect(result.tokens).toEqual({ input: 300, output: 30 });
+  });
+
+  it("reports no tokens when the model surfaces no usage", async () => {
+    const model = new ScriptedModel([{ toolCalls: [{ name: "finish", arguments: {} }] }]);
+    const result = await new AutonomousDriver(fakePage(), model, OPTIONS).drive();
+    expect(result.tokens).toBeUndefined();
+  });
+
+  it("emits a per-turn audit event through onStep", async () => {
+    const events: { step: number; calls: string[]; outcomes: string[] }[] = [];
+    const model = new ScriptedModel([
+      { toolCalls: [{ name: "navigate", arguments: { url: "https://evil.example.net/" } }] },
+      { toolCalls: [{ name: "finish", arguments: {} }] },
+    ]);
+    await new AutonomousDriver(fakePage(), model, {
+      ...OPTIONS,
+      onStep: (e) => events.push({ step: e.step, calls: e.calls, outcomes: e.outcomes }),
+    }).drive();
+
+    expect(events.map((e) => e.step)).toEqual([1, 2]);
+    expect(events[0]?.calls).toEqual(["navigate"]);
+    expect(events[0]?.outcomes.join()).toContain("ERROR navigate");
+    expect(events[1]?.outcomes).toEqual(["finish"]);
+  });
+});

@@ -73,3 +73,23 @@ describe("createPageMonitor", () => {
     expect(monitor.console).toEqual([]);
   });
 });
+
+describe("observation budget", () => {
+  it("clips oversized text and ARIA blocks with a truncation marker", () => {
+    const rendered = renderObservation({
+      url: "http://x/",
+      title: "t",
+      text: "a".repeat(9000),
+      aria: "b".repeat(8100),
+    });
+    expect(rendered).toContain("… [truncated 1000 chars]");
+    expect(rendered).toContain("… [truncated 100 chars]");
+    // Bounded: nowhere near the raw 17k of input.
+    expect(rendered.length).toBeLessThan(17000);
+  });
+
+  it("leaves small observations untouched", () => {
+    const rendered = renderObservation({ url: "http://x/", title: "t", text: "hello", aria: "- doc" });
+    expect(rendered).not.toContain("truncated");
+  });
+});

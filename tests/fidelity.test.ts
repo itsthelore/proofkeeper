@@ -70,3 +70,29 @@ describe("assessFidelity", () => {
     );
   });
 });
+
+describe("assessFidelity — runner errors are verdicts, not aborts", () => {
+  class ThrowOnceRunner implements Runner {
+    private call = 0;
+    run(suite: CompiledTest[], _options: RunOptions): Promise<RunResult[]> {
+      this.call++;
+      if (this.call === 2) return Promise.reject(new Error("playwright run failed: browser hung"));
+      return Promise.resolve(
+        suite.map((t) => ({ testId: t.id, target: TARGET.name, status: "passed" as const, durationMs: 1 })),
+      );
+    }
+  }
+
+  it("counts a runner exception as a failed attempt with a recorded reason", async () => {
+    const verdict = await assessFidelity(new ThrowOnceRunner(), TEST, { n: 3, target: TARGET });
+    expect(verdict.stable).toBe(false);
+    expect(verdict.passed).toBe(2);
+    expect(verdict.runs).toEqual([true, false, true]);
+    expect(verdict.errors).toEqual(["attempt 2: playwright run failed: browser hung"]);
+  });
+
+  it("omits errors entirely when no attempt errored", async () => {
+    const verdict = await assessFidelity(new ScriptedRunner([true, true]), TEST, { n: 2, target: TARGET });
+    expect(verdict.errors).toBeUndefined();
+  });
+});
