@@ -54,6 +54,7 @@ interface OpenAIResponseMessage {
 
 interface OpenAICompletion {
   choices?: { message?: OpenAIResponseMessage }[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
 /** The slice of `fetch` this adapter calls. Inject a double for tests. */
@@ -116,8 +117,17 @@ export function fromOpenAIResponse(completion: OpenAICompletion): ModelResponse 
     const name = call.function?.name;
     if (name) toolCalls.push({ name, arguments: parseToolArguments(call.function?.arguments) });
   }
-  if (toolCalls.length > 0) return { toolCalls };
-  return { done: message.content ?? "" };
+  const usage =
+    completion.usage !== undefined
+      ? {
+          usage: {
+            inputTokens: completion.usage.prompt_tokens ?? 0,
+            outputTokens: completion.usage.completion_tokens ?? 0,
+          },
+        }
+      : {};
+  if (toolCalls.length > 0) return { toolCalls, ...usage };
+  return { done: message.content ?? "", ...usage };
 }
 
 export class OpenAICompatibleModelClient implements ModelClient {

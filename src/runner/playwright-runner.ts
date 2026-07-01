@@ -26,6 +26,9 @@ interface ExecError extends Error {
   stderr?: string;
 }
 
+/** Wall-clock cap on one Playwright invocation — a hung browser must not hang the pipeline. */
+export const RUN_TIMEOUT_MS = 10 * 60_000;
+
 export interface PlaywrightRunnerOptions {
   /** Working directory the Playwright project lives in. Defaults to cwd. */
   cwd?: string;
@@ -37,17 +40,21 @@ export interface PlaywrightRunnerOptions {
   outputDir?: string;
   /** Override the Playwright invocation (advanced/testing). */
   command?: { bin: string; baseArgs: string[] };
+  /** Wall-clock cap per Playwright invocation. Defaults to {@link RUN_TIMEOUT_MS}. */
+  timeoutMs?: number;
 }
 
 export class PlaywrightRunner implements Runner {
   private readonly cwd: string;
   private readonly outputDir: string | undefined;
   private readonly command: { bin: string; baseArgs: string[] };
+  private readonly timeoutMs: number;
 
   constructor(options: PlaywrightRunnerOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
     this.outputDir = options.outputDir;
     this.command = options.command ?? { bin: "npx", baseArgs: ["playwright", "test"] };
+    this.timeoutMs = options.timeoutMs ?? RUN_TIMEOUT_MS;
   }
 
   async run(suite: CompiledTest[], options: RunOptions): Promise<RunResult[]> {
@@ -85,6 +92,7 @@ export class PlaywrightRunner implements Runner {
         cwd: this.cwd,
         env,
         maxBuffer: 256 * 1024 * 1024,
+        timeout: this.timeoutMs,
       }));
     } catch (err) {
       const execErr = err as ExecError;

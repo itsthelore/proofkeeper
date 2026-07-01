@@ -149,24 +149,31 @@ export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions):
         ...(deps.learning ? { learning: deps.learning } : {}),
       };
 
-      const result = await runQa(capDeps, {
-        graph: options.graph,
-        capabilityId: cap.id,
-        startUrl: target.url,
-        ...(cap.config.goal !== undefined ? { goal: cap.config.goal } : {}),
-        ...(goalContext !== undefined ? { goalContext } : {}),
-        // Each capability runs against its resolved environment URL.
-        target: { name: target.name, baseURL: target.url },
-        n: options.n,
-        ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
-        ...(options.plan ? { plan: true } : {}),
-        ...(target.extensionPath !== undefined ? { extensionPath: target.extensionPath } : {}),
-        // The config's trust boundary: shell opt-in and host allowlist.
-        ...(options.config.allowShell !== undefined ? { allowShell: options.config.allowShell } : {}),
-        ...(options.config.allowedHosts !== undefined ? { allowedHosts: options.config.allowedHosts } : {}),
-        ...(propose ? { propose } : {}),
-      });
-      return { capability: cap, result };
+      // Isolate the whole drive→gate→propose per capability: one capability's
+      // throw (a model outage, a broken runner) becomes ITS error entry — it
+      // must never reject the pool and discard sibling capabilities' results.
+      try {
+        const result = await runQa(capDeps, {
+          graph: options.graph,
+          capabilityId: cap.id,
+          startUrl: target.url,
+          ...(cap.config.goal !== undefined ? { goal: cap.config.goal } : {}),
+          ...(goalContext !== undefined ? { goalContext } : {}),
+          // Each capability runs against its resolved environment URL.
+          target: { name: target.name, baseURL: target.url },
+          n: options.n,
+          ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
+          ...(options.plan ? { plan: true } : {}),
+          ...(target.extensionPath !== undefined ? { extensionPath: target.extensionPath } : {}),
+          // The config's trust boundary: shell opt-in and host allowlist.
+          ...(options.config.allowShell !== undefined ? { allowShell: options.config.allowShell } : {}),
+          ...(options.config.allowedHosts !== undefined ? { allowedHosts: options.config.allowedHosts } : {}),
+          ...(propose ? { propose } : {}),
+        });
+        return { capability: cap, result };
+      } catch (err) {
+        return { capability: cap, error: (err as Error).message };
+      }
     },
   );
 

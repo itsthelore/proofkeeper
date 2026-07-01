@@ -18,7 +18,7 @@ import type { Page } from "@playwright/test";
 import type { RecordedSession } from "../compiler/actions.js";
 import { Recorder } from "../compiler/recorder.js";
 import { observePage, renderObservation, createPageMonitor } from "./observe.js";
-import type { ModelClient, ModelRequest, ToolCall } from "./model.js";
+import type { ModelClient, ModelRequest, ModelResponse, ToolCall } from "./model.js";
 import {
   toolsForPolicy,
   LOCATOR_GUIDANCE,
@@ -36,6 +36,9 @@ import { buildPolicy, callRefusal, type EgressPolicy } from "./policy.js";
 import { redactText } from "./redact.js";
 
 const DEFAULT_MAX_STEPS = 12;
+
+/** Default wall-clock cap on one model call. */
+export const DEFAULT_MODEL_TIMEOUT_MS = 120_000;
 
 export interface DriveOptions {
   /** Capability under verification; threads into the recorded session. */
@@ -73,6 +76,29 @@ export interface DriveOptions {
    * origin (`--allow-host` / config `allowedHosts`). Everything else is refused.
    */
   allowedHosts?: string[];
+  /**
+   * Wall-clock cap on one model call. A stalled provider must not hang the
+   * drive forever. Defaults to {@link DEFAULT_MODEL_TIMEOUT_MS}.
+   */
+  modelTimeoutMs?: number;
+  /**
+   * Backoff before the single retry of a failed model call. Defaults to 2s;
+   * tests pass 0.
+   */
+  modelRetryBackoffMs?: number;
+  /** Per-turn observer for the audit trail (`--verbose`): what the agent did. */
+  onStep?: (event: DriveStepEvent) => void;
+}
+
+/** One turn's audit record, emitted through {@link DriveOptions.onStep}. */
+export interface DriveStepEvent {
+  step: number;
+  /** Tool names the model called this turn (empty on a give-up turn). */
+  calls: string[];
+  /** Per-call outcome lines (`ok: click`, `ERROR navigate: …`). */
+  outcomes: string[];
+  /** Model-call latency for the turn, in milliseconds. */
+  modelMs: number;
 }
 
 export interface DriveResult {
@@ -80,6 +106,8 @@ export interface DriveResult {
   session: RecordedSession;
   /** True only when the model explicitly called `finish`. */
   finished: boolean;
+  /** Accumulated provider-reported token usage, when the adapter surfaces it. */
+  tokens?: { input: number; output: number };
   /**
    * Why the drive ended: `finished` — the model called `finish`; `gave_up` —
    * the model stopped issuing tool calls without finishing; `step_budget` —
@@ -239,12 +267,56 @@ async function dispatch(recorder: Recorder, call: ToolCall, policy: EgressPolicy
   }
 }
 
+/** Reject when the model call outlives the cap — a stalled provider must not hang the drive. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`model call timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      },
+    );
+  });
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
 export class AutonomousDriver {
   constructor(
     private readonly page: Page,
     private readonly model: ModelClient,
     private readonly options: DriveOptions,
   ) {}
+
+  /**
+   * One model call with a wall-clock cap and a single backed-off retry — a
+   * transient provider blip must not abort an otherwise-recoverable drive.
+   * (Action errors already feed back to the model; this covers the model call
+   * itself, which previously had no timeout or retry at all.)
+   */
+  private async complete(request: ModelRequest): Promise<ModelResponse> {
+    const timeoutMs = this.options.modelTimeoutMs ?? DEFAULT_MODEL_TIMEOUT_MS;
+    try {
+      return await withTimeout(this.model.complete(request), timeoutMs);
+    } catch (first) {
+      await sleep(this.options.modelRetryBackoffMs ?? 2000);
+      try {
+        return await withTimeout(this.model.complete(request), timeoutMs);
+      } catch (second) {
+        throw new Error(
+          `model call failed twice: ${(first as Error).message}; retry: ${(second as Error).message}`,
+        );
+      }
+    }
+  }
 
   async drive(): Promise<DriveResult> {
     // The trust boundary for this drive: shell off unless opted in; egress
@@ -291,11 +363,22 @@ export class AutonomousDriver {
     // Optional planning turn: ask for a Markdown test plan (no tools → text),
     // record it, and feed it back as context so the drive follows its own plan.
     let plan: string | undefined;
+    const tokens = { input: 0, output: 0 };
+    let sawUsage = false;
+    const account = (response: ModelResponse): void => {
+      if (response.usage) {
+        sawUsage = true;
+        tokens.input += response.usage.inputTokens;
+        tokens.output += response.usage.outputTokens;
+      }
+    };
+
     if (this.options.plan) {
-      const response = await this.model.complete({
+      const response = await this.complete({
         transcript: [...transcript, { role: "user", content: PLAN_INSTRUCTION }],
         tools: [],
       });
+      account(response);
       const text = response.done?.trim();
       if (text) {
         plan = text;
@@ -311,7 +394,10 @@ export class AutonomousDriver {
 
     while (steps < maxSteps) {
       steps++;
-      const response = await this.model.complete({ transcript, tools: toolsForPolicy(policy) });
+      const modelStart = Date.now();
+      const response = await this.complete({ transcript, tools: toolsForPolicy(policy) });
+      const modelMs = Date.now() - modelStart;
+      account(response);
       const calls = response.toolCalls ?? [];
 
       if (calls.length === 0) {
@@ -320,6 +406,7 @@ export class AutonomousDriver {
         // there are no tool calls, so its mere presence proves nothing.)
         stopReason = "gave_up";
         gaveUpText = response.done?.trim() || undefined;
+        this.options.onStep?.({ step: steps, calls: [], outcomes: ["(no tool calls — gave up)"], modelMs });
         break;
       }
 
@@ -332,6 +419,7 @@ export class AutonomousDriver {
         if (result.finished) {
           finished = true;
           stopReason = "finished";
+          outcomes.push("finish");
           stop = true;
           break;
         }
@@ -341,6 +429,7 @@ export class AutonomousDriver {
             : `ERROR ${call.name}: ${result.error}`,
         );
       }
+      this.options.onStep?.({ step: steps, calls: calls.map((c) => c.name), outcomes, modelMs });
       if (stop) break;
 
       transcript.push({ role: "user", content: `Results:\n${outcomes.join("\n")}\n\n${await observe()}` });
@@ -354,6 +443,7 @@ export class AutonomousDriver {
       finished,
       stopReason,
       ...(gaveUpText !== undefined ? { gaveUpText } : {}),
+      ...(sawUsage ? { tokens } : {}),
       steps,
       ...(plan !== undefined ? { plan } : {}),
     };
