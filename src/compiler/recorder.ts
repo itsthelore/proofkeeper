@@ -37,16 +37,20 @@ export class Recorder {
     private readonly options: RecorderOptions,
   ) {}
 
+  // Exact name/text matching, mirroring the emitter's locatorExpr — an action
+  // that resolved at record time must mean the same thing on replay.
   private resolve(loc: Locator) {
     switch (loc.kind) {
       case "role":
-        return this.page.getByRole(loc.role as Parameters<Page["getByRole"]>[0], { name: loc.name });
+        return this.page.getByRole(loc.role as Parameters<Page["getByRole"]>[0], {
+          ...(loc.name !== undefined ? { name: loc.name, exact: true } : {}),
+        });
       case "testId":
         return this.page.getByTestId(loc.testId);
       case "text":
-        return this.page.getByText(loc.text);
+        return this.page.getByText(loc.text, { exact: true });
       case "label":
-        return this.page.getByLabel(loc.label);
+        return this.page.getByLabel(loc.label, { exact: true });
       case "css":
         return this.page.locator(loc.selector);
     }

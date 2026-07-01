@@ -11,7 +11,7 @@
  * (dev, prod) while still being runnable standalone.
  */
 
-import type { Action, Locator, RecordedSession } from "./actions.js";
+import { sessionAssertsOutcome, type Action, type Locator, type RecordedSession } from "./actions.js";
 
 /** Single-quoted string literal with deterministic escaping. */
 function lit(value: string): string {
@@ -24,18 +24,23 @@ function lit(value: string): string {
   return `'${escaped}'`;
 }
 
+// Name/text matching is exact: Playwright's default is substring and
+// case-insensitive, so a later DOM addition containing the same substring would
+// silently break (strict-mode violation) or mis-target a recorded locator on
+// replay. The Recorder resolves with the same exactness, so an assertion that
+// held at record time means the same thing at run time.
 function locatorExpr(loc: Locator): string {
   switch (loc.kind) {
     case "role":
       return loc.name !== undefined
-        ? `page.getByRole(${lit(loc.role)}, { name: ${lit(loc.name)} })`
+        ? `page.getByRole(${lit(loc.role)}, { name: ${lit(loc.name)}, exact: true })`
         : `page.getByRole(${lit(loc.role)})`;
     case "testId":
       return `page.getByTestId(${lit(loc.testId)})`;
     case "text":
-      return `page.getByText(${lit(loc.text)})`;
+      return `page.getByText(${lit(loc.text)}, { exact: true })`;
     case "label":
-      return `page.getByLabel(${lit(loc.label)})`;
+      return `page.getByLabel(${lit(loc.label)}, { exact: true })`;
     case "css":
       return `page.locator(${lit(loc.selector)})`;
   }
@@ -136,12 +141,19 @@ function usesHttp(session: RecordedSession): boolean {
 /**
  * Emit Playwright `.spec.ts` source for a recorded session.
  *
- * @throws {Error} when the session recorded no actions — an empty test
- *   verifies nothing and must not be emitted.
+ * @throws {Error} when the session recorded no actions, or recorded no
+ *   assertions — a test that asserts nothing verifies nothing and must not
+ *   be emitted (it would pass the fidelity gate trivially).
  */
 export function emitSpec(session: RecordedSession): string {
   if (session.actions.length === 0) {
     throw new Error("refusing to emit a test from a session with no recorded actions");
+  }
+  if (!sessionAssertsOutcome(session)) {
+    throw new Error(
+      "refusing to emit a test from a session with no recorded assertions — " +
+        "a spec that asserts nothing verifies nothing",
+    );
   }
 
   const provenance = session.capabilityId

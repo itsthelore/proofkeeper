@@ -121,8 +121,12 @@ export function parseGraph(json: string): Graph {
     throw new GraphParseError("graph export is missing an `edges` array");
   }
   // Tolerate a missing schema_version (older/loose inputs), but refuse a
-  // present-but-unsupported one rather than emit possibly-wrong coverage.
-  const schemaVersion = typeof raw["schema_version"] === "string" ? raw["schema_version"] : "";
+  // present-but-unsupported one rather than emit possibly-wrong coverage. A
+  // numeric version counts as present — stringify it so `2` cannot slip past
+  // the guard as "omitted".
+  const rawVersion = raw["schema_version"];
+  const schemaVersion =
+    typeof rawVersion === "string" ? rawVersion : typeof rawVersion === "number" ? String(rawVersion) : "";
   if (schemaVersion !== "" && schemaVersion !== SUPPORTED_GRAPH_SCHEMA) {
     throw new GraphParseError(
       `unsupported rac graph schema_version '${schemaVersion}' ` +

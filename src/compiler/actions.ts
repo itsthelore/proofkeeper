@@ -41,6 +41,25 @@ export type Action =
   | { type: "expectStatus"; status: number }
   | { type: "expectJson"; path: string; equals: string | number | boolean };
 
+/** The action types that assert an observable outcome. */
+const ASSERTION_TYPES: readonly Action["type"][] = [
+  "expectText",
+  "expectVisible",
+  "expectOutput",
+  "expectExit",
+  "expectStatus",
+  "expectJson",
+];
+
+/**
+ * Whether a session asserted at least one observable outcome. A session of
+ * bare navigation/clicks compiles to a trivially-green spec that verifies
+ * nothing — callers use this to refuse to call such a session "verified".
+ */
+export function sessionAssertsOutcome(session: RecordedSession): boolean {
+  return session.actions.some((a) => ASSERTION_TYPES.includes(a.type));
+}
+
 /** A captured drive session: its entry point and the actions recorded from it. */
 export interface RecordedSession {
   /** The capability this session exercises (threads to the write-back). */
