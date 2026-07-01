@@ -25,6 +25,18 @@ match exactly, or the workflow fails the publish.
   *Behavior change:* a drive that needs the terminal must now opt in with
   `--allow-shell`, and one that reaches a second origin must allowlist it.
 
+- **"Verified" now means verified.** A drive is finished only when the model
+  explicitly calls `finish` — a model that stops acting is an honest give-up,
+  recorded to failure-learning, never a success. A session that asserted
+  nothing is reported unverified without compiling (and the emitter refuses
+  assertion-free sessions). Emitted role/text/label locators match **exactly**
+  on both record and replay, so a later DOM addition can't silently re-target
+  a committed test. A numeric graph `schema_version` can no longer bypass the
+  compatibility guard, an empty Playwright report raises an actionable error
+  ("no tests matched — check testDir") instead of a misleading "unstable"
+  quarantine, and a target project's configured retries count each test's
+  final attempt as its outcome.
+
 ## 2026.07.1 — the "any model" release
 
 The release that makes **bring-your-own-model** mean *any* model — and proves Proofkeeper on itself. Everything since the first cut:
