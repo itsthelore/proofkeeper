@@ -12,3 +12,6 @@ traces/
 
 # Compiler output (emitted specs are regenerated from recorded sessions)
 examples/generated/
+
+# Demo recording scratch (only the committed GIFs under docs/assets/ are kept)
+demo/out/
