@@ -30,7 +30,11 @@ describe("emitSpec — terminal actions", () => {
     const browserOnly: RecordedSession = {
       title: "browser only",
       startUrl: "http://x/",
-      actions: [{ type: "goto", url: "http://x/" }, { type: "click", locator: { kind: "testId", testId: "go" } }],
+      actions: [
+        { type: "goto", url: "http://x/" },
+        { type: "click", locator: { kind: "testId", testId: "go" } },
+        { type: "expectVisible", locator: { kind: "testId", testId: "go" } },
+      ],
     };
     const src = emitSpec(browserOnly);
     expect(src).not.toContain("node:child_process");

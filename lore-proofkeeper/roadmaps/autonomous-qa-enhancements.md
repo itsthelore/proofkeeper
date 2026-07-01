@@ -79,6 +79,13 @@ explicit operator opt-in, navigate/request egress is allowlisted to the product
 under test, and observation side channels are redacted before reaching the model
 provider. Serves the trust outcome that underwrites every committed test.
 
+### Verified semantics
+
+Make "verified" unearnable without verification: completion only via an explicit
+finish, assertion-free sessions refused, exact locator matching on record and
+replay, and contract anomalies (schema versions, empty or retried reports)
+refused rather than guessed at. Serves the faithful-tests outcome at its core.
+
 ## Success Measures
 
 - A pull request shows exactly one Proofkeeper QA comment regardless of how many

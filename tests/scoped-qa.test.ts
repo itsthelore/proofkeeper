@@ -65,9 +65,12 @@ function fakeDrive(driven: string[]): QaDeps["drive"] {
       ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
       title: options.title,
       startUrl: options.startUrl,
-      actions: [{ type: "goto", url: options.startUrl }],
+      actions: [
+        { type: "goto", url: options.startUrl },
+        { type: "expectText", locator: { kind: "testId", testId: "status" }, text: "ok" },
+      ],
     };
-    return Promise.resolve({ session, finished: true, steps: 1 } satisfies DriveResult);
+    return Promise.resolve({ session, finished: true, stopReason: "finished", steps: 1 } satisfies DriveResult);
   };
 }
 
@@ -125,9 +128,12 @@ describe("runScopedQa", () => {
         ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
         title: options.title,
         startUrl: options.startUrl,
-        actions: [{ type: "goto", url: options.startUrl }],
+        actions: [
+        { type: "goto", url: options.startUrl },
+        { type: "expectText", locator: { kind: "testId", testId: "status" }, text: "ok" },
+      ],
       };
-      return Promise.resolve({ session, finished: true, steps: 1 } satisfies DriveResult);
+      return Promise.resolve({ session, finished: true, stopReason: "finished", steps: 1 } satisfies DriveResult);
     };
     const config: ProofkeeperConfig = {
       capabilities: [{ id: "REQ-B", paths: ["src/b/**"], environment: "production" }],
@@ -153,9 +159,12 @@ describe("runScopedQa", () => {
         ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
         title: options.title,
         startUrl: options.startUrl,
-        actions: [{ type: "goto", url: options.startUrl }],
+        actions: [
+        { type: "goto", url: options.startUrl },
+        { type: "expectText", locator: { kind: "testId", testId: "status" }, text: "ok" },
+      ],
       };
-      return Promise.resolve({ session, finished: true, steps: 1 } satisfies DriveResult);
+      return Promise.resolve({ session, finished: true, stopReason: "finished", steps: 1 } satisfies DriveResult);
     };
     const config: ProofkeeperConfig = {
       capabilities: [{ id: "REQ-B", paths: ["src/b/**"], url: "http://b/" }],
@@ -176,9 +185,12 @@ describe("runScopedQa", () => {
         ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
         title: options.title,
         startUrl: options.startUrl,
-        actions: [{ type: "goto", url: options.startUrl }],
+        actions: [
+        { type: "goto", url: options.startUrl },
+        { type: "expectText", locator: { kind: "testId", testId: "status" }, text: "ok" },
+      ],
       };
-      return Promise.resolve({ session, finished: true, steps: 1 } satisfies DriveResult);
+      return Promise.resolve({ session, finished: true, stopReason: "finished", steps: 1 } satisfies DriveResult);
     };
     const config: ProofkeeperConfig = {
       capabilities: [{ id: "REQ-B", paths: ["src/b/**"], url: "http://b/", persona: "viewer" }],
@@ -241,9 +253,12 @@ describe("runScopedQa", () => {
         ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
         title: options.title,
         startUrl: options.startUrl,
-        actions: [{ type: "goto", url: options.startUrl }],
+        actions: [
+        { type: "goto", url: options.startUrl },
+        { type: "expectText", locator: { kind: "testId", testId: "status" }, text: "ok" },
+      ],
       };
-      return { session, finished: true, steps: 1 } satisfies DriveResult;
+      return { session, finished: true, stopReason: "finished", steps: 1 } satisfies DriveResult;
     };
     const deps: ScopedQaDeps = { drive: slowDrive, makeCompiler: () => new FakeCompiler(), makeRunner: () => new FakeRunner("passed") };
     const result = await runScopedQa(deps, {
@@ -271,6 +286,7 @@ describe("runScopedQa", () => {
       return {
         session: { ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}), title: options.title, startUrl: options.startUrl, actions: [{ type: "goto", url: options.startUrl }] },
         finished: true,
+        stopReason: "finished",
         steps: 1,
       } satisfies DriveResult;
     };

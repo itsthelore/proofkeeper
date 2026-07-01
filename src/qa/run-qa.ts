@@ -17,6 +17,7 @@
 import type { Graph } from "../coverage/graph.js";
 import { computeCoverage, type CapabilityCoverage } from "../coverage/model.js";
 import type { Compiler } from "../compiler/types.js";
+import { sessionAssertsOutcome } from "../compiler/actions.js";
 import { summarizeSession } from "../compiler/summary.js";
 import type { Runner, RunTarget } from "../runner/types.js";
 import { runAgentLoop, type AgentLoopResult } from "../agent/loop.js";
@@ -102,9 +103,17 @@ export interface QaOptions {
 export interface QaResult {
   capability: CapabilityCoverage;
   drive: DriveResult;
-  loop: AgentLoopResult;
-  /** True iff the compiled test passed the fidelity gate. */
+  /**
+   * Compile → fidelity → run outcome. Absent when the drive produced nothing
+   * worth compiling (it gave up, hit the step budget, or asserted nothing) —
+   * a session that asserts nothing would pass the gate trivially, so it is
+   * never compiled.
+   */
+  loop?: AgentLoopResult;
+  /** True iff the drive finished AND the compiled test passed the fidelity gate. */
   verified: boolean;
+  /** Why the capability is not verified, when it is not. */
+  unverifiedReason?: string;
   /** Present only when a write-back was attempted (stable + proposer + propose). */
   writeBack?: WriteBackResult;
 }
@@ -136,6 +145,31 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
   };
   const drive = await deps.drive(driveOptions);
 
+  // "Verified" must mean verified: the drive must have explicitly finished AND
+  // asserted at least one observable outcome. A gave-up or assertion-free
+  // session is unverified without compiling — it would pass the gate trivially.
+  const unverifiedReason = !drive.finished
+    ? drive.stopReason === "gave_up"
+      ? `drive gave up after ${drive.steps} step(s) without finishing` +
+        (drive.gaveUpText !== undefined ? `: ${drive.gaveUpText}` : "")
+      : `drive did not finish within the step budget (${drive.steps} steps)`
+    : !sessionAssertsOutcome(drive.session)
+      ? "drive finished but recorded no assertions — nothing observable was verified"
+      : undefined;
+
+  if (unverifiedReason !== undefined) {
+    const result: QaResult = { capability, drive, verified: false, unverifiedReason };
+    if (deps.learning) {
+      await deps.learning.recordFailure({
+        capabilityId: capability.id,
+        goal,
+        reason: unverifiedReason,
+        steps: drive.steps,
+      });
+    }
+    return result;
+  }
+
   const loop = await runAgentLoop(
     { compiler: deps.compiler, runner: deps.runner },
     {
@@ -147,6 +181,9 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
 
   const verified = loop.verdict.stable;
   const result: QaResult = { capability, drive, loop, verified };
+  if (!verified) {
+    result.unverifiedReason = `compiled test was unstable: ${loop.verdict.passed}/${loop.verdict.attempts} re-runs green`;
+  }
 
   // Propose the write-back only for a stable test (ADR-065: a human reviews it).
   // The proposal carries the readable step summary so a reviewer can read the
@@ -168,13 +205,11 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
   }
 
   // Remember a failure so the next attempt avoids it (failure-learning).
-  if (deps.learning && (!verified || !drive.finished)) {
+  if (deps.learning && !verified) {
     await deps.learning.recordFailure({
       capabilityId: capability.id,
       goal,
-      reason: !drive.finished
-        ? `drive did not finish within the step budget (${drive.steps} steps)`
-        : `compiled test was unstable: ${loop.verdict.passed}/${loop.verdict.attempts} re-runs green`,
+      reason: result.unverifiedReason ?? "unverified",
       steps: drive.steps,
     });
   }

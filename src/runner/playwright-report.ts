@@ -58,16 +58,14 @@ function mapStatus(raw: string | undefined): RunStatus {
   }
 }
 
-/** Depth-first walk of the nested suite tree, yielding every result. */
-function collectResults(suites: PwSuite[] | undefined): PwResult[] {
-  const out: PwResult[] = [];
+/** Depth-first walk of the nested suite tree, yielding every test. */
+function collectTests(suites: PwSuite[] | undefined): PwTest[] {
+  const out: PwTest[] = [];
   for (const suite of suites ?? []) {
     for (const spec of suite.specs ?? []) {
-      for (const test of spec.tests ?? []) {
-        out.push(...(test.results ?? []));
-      }
+      out.push(...(spec.tests ?? []));
     }
-    out.push(...collectResults(suite.suites));
+    out.push(...collectTests(suite.suites));
   }
   return out;
 }
@@ -85,19 +83,32 @@ function firstTracePath(results: PwResult[]): string | undefined {
  * Reduce a parsed report to a single {@link RunResult} for one (test, target).
  *
  * A spec file may contain several `test(...)` blocks; we aggregate them: the
- * run passed iff every result passed, the duration is the sum, and the trace is
- * the first trace attachment found. An empty report (no results) is a failure —
- * a spec that ran nothing did not verify anything.
+ * run passed iff every test's FINAL attempt passed (a target project may
+ * configure retries, and Playwright appends one result per attempt — the last
+ * one is the test's outcome), the duration is the sum of final attempts, and
+ * the trace is the first trace attachment found.
+ *
+ * @throws {ReportParseError} when the report contains no test results — a spec
+ *   that ran nothing did not verify anything, and silently calling that
+ *   "failed" would quarantine the capability with a misleading reason. The
+ *   usual cause is a spec path outside the Playwright config's `testDir`.
  */
 export function reduceReport(report: PwReport, testId: string, target: string): RunResult {
-  const results = collectResults(report.suites);
+  const tests = collectTests(report.suites);
+  // One result per test: its final attempt (retries append earlier attempts).
+  const finals = tests
+    .map((t) => t.results?.[t.results.length - 1])
+    .filter((r): r is PwResult => r !== undefined);
 
-  if (results.length === 0) {
-    return { testId, target, status: "failed", durationMs: 0 };
+  if (finals.length === 0) {
+    throw new ReportParseError(
+      `the Playwright report for '${testId}' contains no test results — no tests matched. ` +
+        "Check that the spec path is inside the target Playwright config's testDir/testMatch.",
+    );
   }
 
-  const statuses = results.map((r) => mapStatus(r.status));
-  const durationMs = results.reduce((sum, r) => sum + (r.duration ?? 0), 0);
+  const statuses = finals.map((r) => mapStatus(r.status));
+  const durationMs = finals.reduce((sum, r) => sum + (r.duration ?? 0), 0);
   const allPassed = statuses.every((s) => s === "passed");
 
   // Surface the most informative non-pass status when not all passed.
@@ -106,7 +117,9 @@ export function reduceReport(report: PwReport, testId: string, target: string): 
     : (statuses.find((s) => s === "timedout") ?? statuses.find((s) => s === "failed") ?? "failed");
 
   const result: RunResult = { testId, target, status, durationMs };
-  const tracePath = firstTracePath(results);
+  // Prefer a trace from a final attempt; fall back to any attempt's trace.
+  const tracePath =
+    firstTracePath(finals) ?? firstTracePath(tests.flatMap((t) => t.results ?? []));
   if (tracePath) result.tracePath = tracePath;
   return result;
 }

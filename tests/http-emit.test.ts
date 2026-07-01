@@ -46,7 +46,11 @@ describe("emitSpec — HTTP actions", () => {
     const browserOnly: RecordedSession = {
       title: "browser",
       startUrl: "http://x/",
-      actions: [{ type: "goto", url: "http://x/" }, { type: "click", locator: { kind: "testId", testId: "go" } }],
+      actions: [
+        { type: "goto", url: "http://x/" },
+        { type: "click", locator: { kind: "testId", testId: "go" } },
+        { type: "expectVisible", locator: { kind: "testId", testId: "go" } },
+      ],
     };
     expect(emitSpec(browserOnly)).not.toContain("httpRequest");
   });

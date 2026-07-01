@@ -164,6 +164,8 @@ export const LOCATOR_GUIDANCE =
   "A locator is an object { strategy: 'role'|'testId'|'text'|'label'|'css', ... }: " +
   "role needs { role, name? }, testId needs { testId }, text needs { text }, " +
   "label needs { label }, css needs { selector }. Prefer role, testId, or text over css. " +
+  "Name, text, and label matching is EXACT — copy the accessible name or visible text " +
+  "verbatim from the observation, not a fragment of it. " +
   "A locator may be passed as the `locator` field or inline on the arguments.";
 
 /** Guidance for the terminal tools, folded into the system prompt. */

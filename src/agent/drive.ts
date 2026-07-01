@@ -78,8 +78,16 @@ export interface DriveOptions {
 export interface DriveResult {
   /** The recorded session, ready to compile. */
   session: RecordedSession;
-  /** True if the model signalled completion (vs hitting the step budget). */
+  /** True only when the model explicitly called `finish`. */
   finished: boolean;
+  /**
+   * Why the drive ended: `finished` — the model called `finish`; `gave_up` —
+   * the model stopped issuing tool calls without finishing; `step_budget` —
+   * the turn cap was hit. Only `finished` may lead to "verified".
+   */
+  stopReason: "finished" | "gave_up" | "step_budget";
+  /** The model's final text when it gave up, for the failure-learning record. */
+  gaveUpText?: string;
   /** Number of model turns taken. */
   steps: number;
   /** The Markdown test plan, when a planning turn ran. */
@@ -297,6 +305,8 @@ export class AutonomousDriver {
 
     const maxSteps = this.options.maxSteps ?? DEFAULT_MAX_STEPS;
     let finished = false;
+    let stopReason: DriveResult["stopReason"] = "step_budget";
+    let gaveUpText: string | undefined;
     let steps = 0;
 
     while (steps < maxSteps) {
@@ -305,8 +315,11 @@ export class AutonomousDriver {
       const calls = response.toolCalls ?? [];
 
       if (calls.length === 0) {
-        // The model stopped acting; treat a `done` message as completion.
-        finished = response.done !== undefined;
+        // The model stopped issuing tool calls without calling `finish`: that is
+        // a give-up, not completion. (Adapters return text in `done` whenever
+        // there are no tool calls, so its mere presence proves nothing.)
+        stopReason = "gave_up";
+        gaveUpText = response.done?.trim() || undefined;
         break;
       }
 
@@ -318,6 +331,7 @@ export class AutonomousDriver {
         const result = await dispatch(recorder, call, policy);
         if (result.finished) {
           finished = true;
+          stopReason = "finished";
           stop = true;
           break;
         }
@@ -335,7 +349,14 @@ export class AutonomousDriver {
     monitor.dispose();
     const session = recorder.recording();
     if (plan !== undefined) session.plan = plan;
-    return { session, finished, steps, ...(plan !== undefined ? { plan } : {}) };
+    return {
+      session,
+      finished,
+      stopReason,
+      ...(gaveUpText !== undefined ? { gaveUpText } : {}),
+      steps,
+      ...(plan !== undefined ? { plan } : {}),
+    };
   }
 }
 

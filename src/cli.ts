@@ -517,13 +517,25 @@ async function runQaCommand(argv: string[]): Promise<number> {
 }
 
 function renderQaResult(result: Awaited<ReturnType<typeof runQa>>): string {
-  const v = result.loop.verdict;
+  const stop =
+    result.drive.stopReason === "finished"
+      ? "finished"
+      : result.drive.stopReason === "gave_up"
+        ? "gave up"
+        : "stopped at step budget";
   const lines = [
     `Capability: ${result.capability.id} — ${result.capability.title}`,
-    `Drive: ${result.drive.steps} step(s), ${result.drive.finished ? "finished" : "stopped at step budget"}`,
-    `Compiled: ${result.loop.candidate.specPath}`,
-    `Fidelity: ${v.passed}/${v.attempts} re-runs green — ${v.stable ? "stable" : "unstable, quarantined"}`,
+    `Drive: ${result.drive.steps} step(s), ${stop}`,
   ];
+  if (result.loop) {
+    const v = result.loop.verdict;
+    lines.push(
+      `Compiled: ${result.loop.candidate.specPath}`,
+      `Fidelity: ${v.passed}/${v.attempts} re-runs green — ${v.stable ? "stable" : "unstable, quarantined"}`,
+    );
+  } else {
+    lines.push(`Not compiled: ${result.unverifiedReason ?? "nothing to verify"}`);
+  }
   if (result.writeBack) {
     lines.push(
       result.writeBack.status === "proposed"

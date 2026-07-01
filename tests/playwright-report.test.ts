@@ -53,9 +53,36 @@ describe("reduceReport", () => {
     expect(reduceReport(nested, "t", "dev").status).toBe("passed");
   });
 
-  it("treats a report with no results as a failure", () => {
-    expect(reduceReport({ suites: [] }, "t", "dev").status).toBe("failed");
-    expect(reduceReport({}, "t", "dev").status).toBe("failed");
+  it("refuses a report with no results — no tests matched is not 'failed'", () => {
+    expect(() => reduceReport({ suites: [] }, "t", "dev")).toThrow(/no tests matched/);
+    expect(() => reduceReport({}, "t", "dev")).toThrow(/testDir/);
+  });
+
+  it("uses each test's final attempt when the target project configures retries", () => {
+    const flakyThenGreen = {
+      suites: [
+        {
+          specs: [
+            {
+              tests: [
+                // Playwright appends one result per attempt; the last is the outcome.
+                { results: [{ status: "failed", duration: 5 }, { status: "passed", duration: 7 }] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const result = reduceReport(flakyThenGreen, "t", "dev");
+    expect(result.status).toBe("passed");
+    expect(result.durationMs).toBe(7);
+
+    const retriedAndStillFailing = {
+      suites: [
+        { specs: [{ tests: [{ results: [{ status: "failed" }, { status: "failed" }] }] }] },
+      ],
+    };
+    expect(reduceReport(retriedAndStillFailing, "t", "dev").status).toBe("failed");
   });
 
   it("passes only when every result in the spec passed", () => {
