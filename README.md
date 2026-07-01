@@ -5,7 +5,7 @@ Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-light.png">
-  <img alt="Proofkeeper — a BYOK agent that drives your app and proves every capability with a real test." src="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-light.png">
+  <img alt="Proofkeeper — a bring-your-own-model agent that drives your app and leaves a re-runnable test as proof for each capability." src="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-light.png">
 </picture>
 -->
 
@@ -27,13 +27,13 @@ Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
 <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache 2.0"></a>
 </p>
 
-> **rac-core captures what your product should do. Proofkeeper proves it does — a BYOK agent that drives your app and verifies each capability with a real test.**
+> **rac-core captures what your product should do. Proofkeeper shows it does — a bring-your-own-model agent that drives your app and leaves a re-runnable test as proof for each capability.**
 
 [Lore (rac-core)](https://github.com/itsthelore/rac-core) records what your product should do — requirements as code. Proofkeeper reads those capabilities over the published `rac export --graph` contract, drives your product to exercise each one, and compiles the run into a Playwright test it proposes back to the corpus by pull request. It produces verification evidence and nothing else — no code review, no codegen — and never touches the Lore engine's internals.
 
 ## How it compares
 
-Proofkeeper turns an agent's exploratory run into a re-runnable test a human reviews — not a recording to rewatch or a one-off review pass. The artifact is the point: a committed Playwright test plus its trace, kept only after it clears a fidelity gate.
+Proofkeeper turns an agent's exploratory run into a re-runnable test a human reviews: a committed Playwright test plus its trace, kept only after it clears a fidelity gate — not a recording to rewatch or a one-off review pass.
 
 | | Proofkeeper | Record-and-replay | AI PR reviewer |
 |---|---|---|---|
@@ -77,7 +77,7 @@ Requires Node ≥ 20. No model ships with Proofkeeper — you bring the key.
 
 ## How it works
 
-- **Drives** your product like a developer would — an agent loop with a browser, a terminal, and HTTP, using your model. It records only the actions that succeed.
+- **Drives** your product through a browser, a terminal, and HTTP — an agent loop on your model that clicks, types, and calls endpoints. It records only the actions that succeed.
 - **Compiles** the run into a Playwright `.spec.ts` with a deterministic emitter, so record and replay agree byte-for-byte.
 - **Fidelity-gates** each test by re-running it N times and keeping only the ones that stay green.
 - **Runs** the kept tests and emits a replayable trace.
@@ -111,7 +111,7 @@ OPENAI_API_KEY=… GITHUB_TOKEN=… proofkeeper qa \
 
 No model is bundled. Two adapters cover most providers; the `ModelClient` interface covers the rest.
 
-- **Any OpenAI-compatible provider** — OpenAI, OpenRouter, Together, Groq, DeepSeek, Mistral, and local Ollama / vLLM. Set `OPENAI_API_KEY`, plus `OPENAI_BASE_URL` / `OPENAI_MODEL` for non-OpenAI targets. No extra dependency; it uses the platform `fetch`.
+- **Any OpenAI-compatible provider** — any endpoint that speaks the chat-completions API with tool calls: OpenAI, OpenRouter, Together, Groq, DeepSeek, Mistral, and local Ollama / vLLM. Set `OPENAI_API_KEY`, plus `OPENAI_BASE_URL` / `OPENAI_MODEL` for non-OpenAI targets. No extra dependency; it uses the platform `fetch`.
 
   ```bash
   OPENAI_API_KEY=… OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_MODEL=… \
