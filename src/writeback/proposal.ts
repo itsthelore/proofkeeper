@@ -83,7 +83,9 @@ function proposalBody(input: {
   }
   if (input.steps && input.steps.length > 0) {
     lines.push("", "Steps exercised:");
-    input.steps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
+    input.steps.forEach((s, i) => {
+      lines.push(`${i + 1}. ${s}`);
+    });
   }
   const trace = input.links.find((l) => l.trace)?.trace;
   if (trace) {
@@ -117,14 +119,20 @@ export function buildProposal(input: BuildProposalInput): WriteBackProposal {
   };
 }
 
+/** Normalize a path to POSIX separators — corpus references must be portable. */
+function posixPath(p: string): string {
+  return p.replaceAll("\\", "/");
+}
+
 /**
  * Derive verification links from a compiled test and its run results: the
  * committed spec (the corpus verifier) plus the first replayable trace produced
- * for it (surfaced in the PR).
+ * for it (surfaced in the PR). Paths are POSIX-normalized: a `## Verified By`
+ * reference written from Windows must still resolve for every other consumer.
  */
 export function linksFromResults(candidate: CandidateTest, results: RunResult[]): VerificationLink[] {
   const trace = results.find((r) => r.testId === candidate.id && r.tracePath)?.tracePath;
-  const link: VerificationLink = { test: candidate.specPath };
-  if (trace) link.trace = trace;
+  const link: VerificationLink = { test: posixPath(candidate.specPath) };
+  if (trace) link.trace = posixPath(trace);
   return [link];
 }

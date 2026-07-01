@@ -80,10 +80,21 @@ export class GitHubRestGateway implements RepoGateway {
     const ref = (await this.request("GET", this.repoPath(`/git/ref/heads/${fromRef}`))) as {
       object: { sha: string };
     };
-    await this.request("POST", this.repoPath("/git/refs"), {
-      ref: `refs/heads/${name}`,
-      sha: ref.object.sha,
-    });
+    try {
+      await this.request("POST", this.repoPath("/git/refs"), {
+        ref: `refs/heads/${name}`,
+        sha: ref.object.sha,
+      });
+    } catch (err) {
+      // A prior write-back run for the same capability may have left the head
+      // branch behind (its PR still open, or closed unmerged). Re-point it at
+      // the fresh base instead of failing the whole run with a 422.
+      if (!(err as Error).message.includes("already exists")) throw err;
+      await this.request("PATCH", this.repoPath(`/git/refs/heads/${name}`), {
+        sha: ref.object.sha,
+        force: true,
+      });
+    }
   }
 
   async commitFile(input: { branch: string; path: string; content: string; message: string }): Promise<void> {
@@ -110,13 +121,27 @@ export class GitHubRestGateway implements RepoGateway {
     url: string;
     number: number;
   }> {
-    const pr = (await this.request("POST", this.repoPath("/pulls"), {
-      title: input.title,
-      head: input.head,
-      base: input.base,
-      body: input.body,
-    })) as { html_url: string; number: number };
-    return { url: pr.html_url, number: pr.number };
+    try {
+      const pr = (await this.request("POST", this.repoPath("/pulls"), {
+        title: input.title,
+        head: input.head,
+        base: input.base,
+        body: input.body,
+      })) as { html_url: string; number: number };
+      return { url: pr.html_url, number: pr.number };
+    } catch (err) {
+      // A prior run's PR for this head branch may still be open — the fresh
+      // commit is already on the branch, so return the existing PR instead of
+      // failing (re-runs are idempotent, not fatal).
+      if (!(err as Error).message.includes("already exists")) throw err;
+      const open = (await this.request(
+        "GET",
+        this.repoPath(`/pulls?head=${encodeURIComponent(`${this.owner}:${input.head}`)}&state=open&per_page=1`),
+      )) as { html_url: string; number: number }[];
+      const existing = open[0];
+      if (!existing) throw err;
+      return { url: existing.html_url, number: existing.number };
+    }
   }
 
   async commentOnPullRequest(input: { number: number; body: string }): Promise<{ url: string }> {
@@ -128,11 +153,17 @@ export class GitHubRestGateway implements RepoGateway {
   }
 
   async listComments(prNumber: number): Promise<{ id: number; body: string }[]> {
-    const data = (await this.request(
-      "GET",
-      this.repoPath(`/issues/${prNumber}/comments?per_page=100`),
-    )) as { id: number; body?: string }[];
-    return data.map((c) => ({ id: c.id, body: c.body ?? "" }));
+    // Paginate: on a busy pull request the marked comment can sit past the
+    // first page, and missing it would post a duplicate instead of updating.
+    const all: { id: number; body: string }[] = [];
+    for (let page = 1; ; page++) {
+      const data = (await this.request(
+        "GET",
+        this.repoPath(`/issues/${prNumber}/comments?per_page=100&page=${page}`),
+      )) as { id: number; body?: string }[];
+      all.push(...data.map((c) => ({ id: c.id, body: c.body ?? "" })));
+      if (data.length < 100) return all;
+    }
   }
 
   async updateComment(commentId: number, body: string): Promise<{ url: string }> {

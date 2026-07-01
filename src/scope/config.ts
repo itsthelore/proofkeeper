@@ -203,7 +203,45 @@ export function parseConfig(json: string): ProofkeeperConfig {
   }
   config.failureLearning =
     raw["failureLearning"] !== undefined ? parseFailureLearning(raw["failureLearning"]) : "suggest_in_report";
+  validateReferences(config);
   return config;
+}
+
+/**
+ * Cross-reference validation: a typo'd environment or persona name must fail
+ * at parse time with the artifact named, not silently fall back to a default
+ * URL (or fail mid-drive) at run time.
+ */
+function validateReferences(config: ProofkeeperConfig): void {
+  const seen = new Set<string>();
+  for (const cap of config.capabilities) {
+    if (seen.has(cap.id)) {
+      throw new ConfigParseError(
+        `duplicate capability id '${cap.id}' — each capability must appear once`,
+      );
+    }
+    seen.add(cap.id);
+  }
+
+  const environments = config.environments ?? {};
+  if (config.defaultTarget !== undefined && environments[config.defaultTarget] === undefined) {
+    throw new ConfigParseError(
+      `defaultTarget '${config.defaultTarget}' is not a defined environment`,
+    );
+  }
+  const personas = new Set((config.personas ?? []).map((p) => p.name));
+  for (const cap of config.capabilities) {
+    if (cap.environment !== undefined && environments[cap.environment] === undefined) {
+      throw new ConfigParseError(
+        `capability '${cap.id}' references undefined environment '${cap.environment}'`,
+      );
+    }
+    if (cap.persona !== undefined && !personas.has(cap.persona)) {
+      throw new ConfigParseError(
+        `capability '${cap.id}' references undefined persona '${cap.persona}'`,
+      );
+    }
+  }
 }
 
 function parseFailureLearning(raw: unknown): FailureLearningStrategy {
