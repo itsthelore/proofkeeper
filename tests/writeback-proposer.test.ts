@@ -163,3 +163,13 @@ describe("GitHubWriteBackProposer", () => {
     expect(gateway.prs).toEqual([]);
   });
 });
+
+describe("linksFromResults — portable paths", () => {
+  it("POSIX-normalizes Windows separators in spec and trace paths", () => {
+    const links = linksFromResults(
+      { id: "c", specPath: "tests\\generated\\req-b.spec.ts" },
+      [{ testId: "c", target: "local", status: "passed", durationMs: 1, tracePath: "test-results\\c\\trace.zip" }],
+    );
+    expect(links).toEqual([{ test: "tests/generated/req-b.spec.ts", trace: "test-results/c/trace.zip" }]);
+  });
+});

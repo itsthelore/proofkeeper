@@ -29,7 +29,8 @@ function fakePage() {
   const handlers: Record<string, Array<(arg: unknown) => void>> = {};
   const page = {
     on: (event: string, handler: (arg: unknown) => void) => {
-      (handlers[event] ??= []).push(handler);
+      handlers[event] ??= [];
+      handlers[event].push(handler);
     },
     off: (event: string, handler: (arg: unknown) => void) => {
       handlers[event] = (handlers[event] ?? []).filter((h) => h !== handler);
@@ -37,7 +38,9 @@ function fakePage() {
   } as unknown as Page;
   return {
     page,
-    emit: (event: string, arg: unknown) => (handlers[event] ?? []).forEach((h) => h(arg)),
+    emit: (event: string, arg: unknown) => {
+      for (const h of handlers[event] ?? []) h(arg);
+    },
     count: (event: string) => (handlers[event] ?? []).length,
   };
 }
