@@ -11,6 +11,10 @@ on:
     branches: ["**"]
   pull_request:
 
+# CI needs to read the repo, nothing more.
+permissions:
+  contents: read
+
 jobs:
   coverage:
     name: self-coverage (proofkeeper verifies proofkeeper)
@@ -29,11 +33,16 @@ jobs:
       # install it as an external CLI from rac-core (its distribution is
       # "requirements-as-code"; the console script is `rac`). Proofkeeper consumes
       # only its published `rac export --graph` JSON output.
+      #
+      # Pinned to a commit: an unpinned default-branch install would execute
+      # whatever lands on rac-core main in this CI on every push — and make the
+      # gate non-reproducible. Bump the SHA deliberately when adopting a newer
+      # contract.
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install the rac engine (provides the `rac` CLI)
-        run: pip install "git+https://github.com/itsthelore/rac-core.git"
+        run: pip install "git+https://github.com/itsthelore/rac-core.git@76e8feff9ae508cfbd4bc9a861c408901920da1d"
 
       - name: Proofkeeper coverage over its own corpus (fails on any unverified)
         run: node dist/cli.js coverage --corpus lore-proofkeeper/
