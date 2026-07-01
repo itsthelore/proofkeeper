@@ -1,21 +1,17 @@
-# Demo assets
+# Demo harness
 
-The GIFs in the README are generated from these scripts. Two things, both **honest
-about what's live**:
+Records a Proofkeeper drive to a video/GIF. Two things, both **honest about what's
+live**:
 
 - **The drive → compile loop is real** — real Chromium, the real `AutonomousDriver`,
   the real deterministic emitter, against the real demo product page
   (`examples/product/index.html`).
 - **The model is swappable.** By default a *scripted* `ModelClient` decides the
-  actions, so the demo is deterministic and costs no tokens. Set an API key and the
+  actions, so the run is deterministic and costs no tokens. Set an API key and the
   same script runs a *real* LLM drive (see [Record a real run](#record-a-real-run)).
 
-Committed output:
-
-| GIF | What it shows |
-|---|---|
-| `docs/assets/proofkeeper-drive.gif` | a drive: the agent loads the page, clicks **Verify**, and the status flips `unverified → verified` |
-| `docs/assets/proofkeeper-coverage.gif` | `proofkeeper coverage` reporting an unverified capability |
+No GIFs are committed — regenerate them from the recipes below. Output lands in
+`demo/out/` (git-ignored).
 
 ## Prerequisites
 
@@ -78,4 +74,4 @@ asciinema rec --overwrite -c \
 agg run.cast run.gif
 ```
 
-`demo/out/` is git-ignored; only the two GIFs under `docs/assets/` are committed.
+`demo/out/` is git-ignored; nothing generated here is committed.
