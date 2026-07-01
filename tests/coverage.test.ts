@@ -57,6 +57,16 @@ describe("parseGraph", () => {
     const graph = parseGraph(JSON.stringify({ source: "x", nodes: [], edges: [] }));
     expect(graph.schema_version).toBe("");
   });
+
+  it("treats a numeric schema_version as present — a number cannot bypass the guard", () => {
+    // A supported version emitted as a number is accepted…
+    const graph = parseGraph(JSON.stringify({ schema_version: 1, source: "x", nodes: [], edges: [] }));
+    expect(graph.schema_version).toBe("1");
+    // …and an unsupported one is refused, not silently tolerated as "omitted".
+    expect(() =>
+      parseGraph(JSON.stringify({ schema_version: 2, source: "x", nodes: [], edges: [] })),
+    ).toThrow(/unsupported rac graph schema_version '2'/);
+  });
 });
 
 describe("computeCoverage", () => {

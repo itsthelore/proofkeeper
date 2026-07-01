@@ -64,12 +64,18 @@ function fakeDrive(captured: { options?: DriveOptions }): QaDeps["drive"] {
       ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
       title: options.title,
       startUrl: options.startUrl,
-      actions: [{ type: "goto", url: options.startUrl }],
+      actions: [
+        { type: "goto", url: options.startUrl },
+        // A verifiable session asserts an observable outcome (assertion-free
+        // sessions are unverified without compiling).
+        { type: "expectText", locator: { kind: "testId", testId: "status" }, text: "ok" },
+      ],
       ...(options.plan ? { plan: "1. Navigate to the page\n2. Assert the outcome" } : {}),
     };
     return Promise.resolve({
       session,
       finished: true,
+      stopReason: "finished",
       steps: 2,
       ...(options.plan ? { plan: "1. Navigate to the page\n2. Assert the outcome" } : {}),
     } satisfies DriveResult);
@@ -119,6 +125,46 @@ describe("runQa", () => {
     });
     expect(captured.options?.allowShell).toBe(true);
     expect(captured.options?.allowedHosts).toEqual(["api.example.com"]);
+  });
+
+  it("marks a give-up unverified without compiling, and records the reason", async () => {
+    const learning = new InMemoryLearningStore();
+    const gaveUpDrive: QaDeps["drive"] = (options) =>
+      Promise.resolve({
+        session: { title: options.title, startUrl: options.startUrl, actions: [{ type: "goto", url: options.startUrl }] },
+        finished: false,
+        stopReason: "gave_up",
+        gaveUpText: "cannot find the checkout button",
+        steps: 4,
+      } satisfies DriveResult);
+    const deps: QaDeps = { drive: gaveUpDrive, compiler: new FakeCompiler(), runner: new FakeRunner("passed"), learning };
+
+    const result = await runQa(deps, { graph: GRAPH, startUrl: "http://x/", target: TARGET, n: 3 });
+
+    expect(result.verified).toBe(false);
+    expect(result.loop).toBeUndefined(); // never compiled, never gated
+    expect(result.unverifiedReason).toMatch(/gave up after 4 step\(s\).*cannot find the checkout button/);
+    const failures = await learning.priorFailures("REQ-B");
+    expect(failures.map((f) => f.reason).join()).toContain("gave up");
+  });
+
+  it("marks a finished-but-assertion-free drive unverified — nothing observable was verified", async () => {
+    const learning = new InMemoryLearningStore();
+    const assertionFreeDrive: QaDeps["drive"] = (options) =>
+      Promise.resolve({
+        session: { title: options.title, startUrl: options.startUrl, actions: [{ type: "goto", url: options.startUrl }] },
+        finished: true,
+        stopReason: "finished",
+        steps: 2,
+      } satisfies DriveResult);
+    const deps: QaDeps = { drive: assertionFreeDrive, compiler: new FakeCompiler(), runner: new FakeRunner("passed"), learning };
+
+    const result = await runQa(deps, { graph: GRAPH, startUrl: "http://x/", target: TARGET, n: 3 });
+
+    expect(result.verified).toBe(false);
+    expect(result.loop).toBeUndefined();
+    expect(result.unverifiedReason).toMatch(/no assertions/);
+    expect((await learning.priorFailures("REQ-B")).length).toBe(1);
   });
 
   it("drives the selected capability with a derived title and goal", async () => {
@@ -199,7 +245,7 @@ describe("runQa", () => {
       n: 1,
       propose: { targetPath: "rac/b.md" },
     });
-    expect(proposer.input?.steps).toEqual(["Navigate to http://x/"]);
+    expect(proposer.input?.steps).toEqual(["Navigate to http://x/", 'Expect [status] to read "ok"']);
   });
 
   it("runs a planning turn and threads the plan into the write-back when enabled", async () => {

@@ -23,8 +23,8 @@ describe("emitSpec", () => {
     expect(src).toContain(`import { expect, test } from "@playwright/test";`);
     expect(src).toContain(`test('user can log in', async ({ page }) => {`);
     expect(src).toContain(`await page.goto(BASE);`);
-    expect(src).toContain(`await page.getByLabel('Email').fill('a@b.com');`);
-    expect(src).toContain(`await page.getByRole('button', { name: 'Log in' }).click();`);
+    expect(src).toContain(`await page.getByLabel('Email', { exact: true }).fill('a@b.com');`);
+    expect(src).toContain(`await page.getByRole('button', { name: 'Log in', exact: true }).click();`);
     expect(src).toContain(`await expect(page.getByTestId('status')).toHaveText('Signed in');`);
     expect(src).toContain(`await expect(page.locator('.dashboard')).toBeVisible();`);
   });
@@ -49,6 +49,19 @@ describe("emitSpec", () => {
 
   it("refuses to emit a test from a session with no actions", () => {
     expect(() => emitSpec({ ...session, actions: [] })).toThrow(/no recorded actions/);
+  });
+
+  it("refuses to emit a test from a session with no assertions", () => {
+    // Navigation and clicks alone compile to a trivially-green spec that
+    // verifies nothing — such a session must never reach the fidelity gate.
+    const assertionFree: RecordedSession = {
+      ...session,
+      actions: [
+        { type: "goto", url: "http://x/" },
+        { type: "click", locator: { kind: "testId", testId: "go" } },
+      ],
+    };
+    expect(() => emitSpec(assertionFree)).toThrow(/no recorded assertions/);
   });
 
   it("does not switch to extension mode for a normal session", () => {
