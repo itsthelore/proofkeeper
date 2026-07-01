@@ -12,6 +12,19 @@ padding to a valid npm version (`2026.6.4`) at publish, because npm's strict
 SemVer forbids leading zeros. The release tag and `package.json` version must
 match exactly, or the workflow fails the publish.
 
+## Unreleased
+
+- **The drive has a trust boundary.** Everything the model observes is content
+  from the product under test — untrusted input. The loop now enforces a policy
+  on the model's tool calls: the **shell is off by default** (`run_command`
+  exists only with `--allow-shell` / config `allowShell`); `navigate`/`request`
+  **egress is allowlisted** to the start URL's origin, the loaded extension's
+  pages, and hosts you pass with `--allow-host` / config `allowedHosts`; and
+  observations are **redacted** (query strings, bearer tokens, key-shaped
+  values) before they reach your model provider.
+  *Behavior change:* a drive that needs the terminal must now opt in with
+  `--allow-shell`, and one that reaches a second origin must allowlist it.
+
 ## 2026.07.1 — the "any model" release
 
 The release that makes **bring-your-own-model** mean *any* model — and proves Proofkeeper on itself. Everything since the first cut:

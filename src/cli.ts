@@ -85,6 +85,11 @@ qa options:
   --out-dir <dir>       Where the compiled .spec.ts is written (default: tests/generated).
   --plan                Emit a Markdown test plan before driving; show it in the PR.
   --extension <dir>     Load an unpacked browser extension for the drive (extension verification).
+  --allow-shell         Enable the drive's terminal tools (off by default: page
+                        content is untrusted input; an unsandboxed shell is an
+                        explicit operator decision).
+  --allow-host <host>   Allow navigate/request to this hostname in addition to the
+                        start URL's origin (repeatable). All other egress is refused.
   --propose             Propose a Verified By write-back PR when the test is stable.
   --target-path <path>  Artifact to write back to (required with --propose).
   --repo <owner/name>   Target repository for the write-back (required with --propose).
@@ -99,6 +104,7 @@ scoped qa options (with --config):
   --propose             Propose a write-back for capabilities that declare an artifact.
   --repo <owner/name>   Repository for write-backs and the PR comment.
   --pr <number>         Post the scoped-QA evidence comment on this pull request.
+                        (Trust boundary in the config file: allowShell, allowedHosts.)
 
 Model (bring your own): set OPENAI_API_KEY for any OpenAI-compatible provider
 (override OPENAI_BASE_URL / OPENAI_MODEL for OpenRouter, Groq, Ollama, vLLM, …),
@@ -272,6 +278,8 @@ export interface QaArgs {
   outDir: string;
   plan: boolean;
   extensionPath?: string;
+  allowShell: boolean;
+  allowedHosts: string[];
   propose: boolean;
   targetPath?: string;
   base?: string;
@@ -331,6 +339,12 @@ export function parseQaArgs(argv: string[]): QaArgs {
       case "--extension":
         raw.extensionPath = requireValue(argv[++i], "--extension");
         break;
+      case "--allow-shell":
+        raw.allowShell = true;
+        break;
+      case "--allow-host":
+        (raw.allowedHosts ??= []).push(requireValue(argv[++i], "--allow-host"));
+        break;
       case "--propose":
         raw.propose = true;
         break;
@@ -376,6 +390,8 @@ export function parseQaArgs(argv: string[]): QaArgs {
     outDir: raw.outDir ?? "tests/generated",
     plan: raw.plan ?? false,
     ...(raw.extensionPath !== undefined ? { extensionPath: raw.extensionPath } : {}),
+    allowShell: raw.allowShell ?? false,
+    allowedHosts: raw.allowedHosts ?? [],
     propose: raw.propose ?? false,
     ...(raw.targetPath !== undefined ? { targetPath: raw.targetPath } : {}),
     ...(raw.base !== undefined ? { base: raw.base } : {}),
@@ -477,6 +493,8 @@ async function runQaCommand(argv: string[]): Promise<number> {
     startUrl: args.url,
     ...(args.goal !== undefined ? { goal: args.goal } : {}),
     ...(args.extensionPath !== undefined ? { extensionPath: args.extensionPath } : {}),
+    ...(args.allowShell ? { allowShell: true } : {}),
+    ...(args.allowedHosts.length > 0 ? { allowedHosts: args.allowedHosts } : {}),
     target,
     n: args.n,
     ...(args.maxSteps !== undefined ? { maxSteps: args.maxSteps } : {}),

@@ -161,6 +161,9 @@ export async function runScopedQa(deps: ScopedQaDeps, options: ScopedQaOptions):
         ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
         ...(options.plan ? { plan: true } : {}),
         ...(target.extensionPath !== undefined ? { extensionPath: target.extensionPath } : {}),
+        // The config's trust boundary: shell opt-in and host allowlist.
+        ...(options.config.allowShell !== undefined ? { allowShell: options.config.allowShell } : {}),
+        ...(options.config.allowedHosts !== undefined ? { allowedHosts: options.config.allowedHosts } : {}),
         ...(propose ? { propose } : {}),
       });
       return { capability: cap, result };

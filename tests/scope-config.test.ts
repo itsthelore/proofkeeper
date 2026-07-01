@@ -216,3 +216,32 @@ describe("environment extensionPath (browser-extension verification)", () => {
     });
   });
 });
+
+describe("trust boundary (allowShell / allowedHosts)", () => {
+  it("parses allowShell and allowedHosts", () => {
+    const cfg = parseConfig(
+      JSON.stringify({
+        capabilities: [{ id: "A", paths: ["x"] }],
+        allowShell: true,
+        allowedHosts: ["api.example.com"],
+      }),
+    );
+    expect(cfg.allowShell).toBe(true);
+    expect(cfg.allowedHosts).toEqual(["api.example.com"]);
+  });
+
+  it("defaults both closed (absent from the parsed config)", () => {
+    const cfg = parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }] }));
+    expect(cfg.allowShell).toBeUndefined();
+    expect(cfg.allowedHosts).toBeUndefined();
+  });
+
+  it("rejects a non-boolean allowShell and a non-string-array allowedHosts", () => {
+    expect(() =>
+      parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], allowShell: "yes" })),
+    ).toThrow(/allowShell/);
+    expect(() =>
+      parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], allowedHosts: [1] })),
+    ).toThrow(/allowedHosts/);
+  });
+});

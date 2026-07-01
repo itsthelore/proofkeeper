@@ -72,6 +72,13 @@ A required CI job that runs `proofkeeper coverage` against Proofkeeper's own
 corpus and fails on any unverified capability, with a README badge — so the
 dogfood signal becomes an enforced guarantee that can never drift un-green.
 
+### Agent trust boundary
+
+Treat everything the model observes as untrusted input: the shell becomes an
+explicit operator opt-in, navigate/request egress is allowlisted to the product
+under test, and observation side channels are redacted before reaching the model
+provider. Serves the trust outcome that underwrites every committed test.
+
 ## Success Measures
 
 - A pull request shows exactly one Proofkeeper QA comment regardless of how many

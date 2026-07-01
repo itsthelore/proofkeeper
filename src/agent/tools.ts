@@ -8,6 +8,7 @@
  */
 
 import type { Locator } from "../compiler/actions.js";
+import { SHELL_TOOL_NAMES, type EgressPolicy } from "./policy.js";
 
 /** A tool definition advertised to the model, carrying a JSON Schema for args. */
 export interface DriveTool {
@@ -144,6 +145,16 @@ export const DRIVE_TOOLS: readonly DriveTool[] = [
     inputSchema: { type: "object", properties: {} },
   },
 ];
+
+/**
+ * The tools advertised for one drive under its {@link EgressPolicy}: the full
+ * catalog when the shell is allowed, otherwise the terminal tools are withheld
+ * entirely — a tool the model never sees is a tool an injected page cannot ask
+ * for.
+ */
+export function toolsForPolicy(policy: Pick<EgressPolicy, "allowShell">): DriveTool[] {
+  return DRIVE_TOOLS.filter((tool) => policy.allowShell || !SHELL_TOOL_NAMES.includes(tool.name));
+}
 
 /**
  * A locator is `{ strategy, ... }`. Prefer resilient strategies (role with a

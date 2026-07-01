@@ -142,6 +142,32 @@ describe("runScopedQa", () => {
     expect(goals["REQ-B"]).toContain("Authentication: email-password via WorkOS");
   });
 
+  it("threads the config's trust boundary (allowShell / allowedHosts) into each drive", async () => {
+    const boundaries: Record<string, { allowShell?: boolean; allowedHosts?: string[] }> = {};
+    const capturingDrive: ScopedQaDeps["drive"] = (options: DriveOptions) => {
+      boundaries[options.capabilityId ?? "?"] = {
+        ...(options.allowShell !== undefined ? { allowShell: options.allowShell } : {}),
+        ...(options.allowedHosts !== undefined ? { allowedHosts: options.allowedHosts } : {}),
+      };
+      const session: RecordedSession = {
+        ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
+        title: options.title,
+        startUrl: options.startUrl,
+        actions: [{ type: "goto", url: options.startUrl }],
+      };
+      return Promise.resolve({ session, finished: true, steps: 1 } satisfies DriveResult);
+    };
+    const config: ProofkeeperConfig = {
+      capabilities: [{ id: "REQ-B", paths: ["src/b/**"], url: "http://b/" }],
+      allowShell: true,
+      allowedHosts: ["api.example.com"],
+    };
+    const deps: ScopedQaDeps = { drive: capturingDrive, makeCompiler: () => new FakeCompiler(), makeRunner: () => new FakeRunner("passed") };
+    await runScopedQa(deps, { graph: GRAPH, config, changedPaths: ["src/b/y.ts"], targetName: "local", n: 1 });
+
+    expect(boundaries["REQ-B"]).toEqual({ allowShell: true, allowedHosts: ["api.example.com"] });
+  });
+
   it("threads a persona's focus and forbidden actions into the drive goal", async () => {
     const goals: Record<string, string> = {};
     const capturingDrive: ScopedQaDeps["drive"] = (options: DriveOptions) => {

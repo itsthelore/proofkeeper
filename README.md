@@ -121,6 +121,16 @@ No model is bundled. Two adapters cover most providers; the `ModelClient` interf
 - **Claude** — set `ANTHROPIC_API_KEY`; the adapter lazily imports `@anthropic-ai/sdk`.
 - **Anything else** — implement `ModelClient` (a single `complete()` method) and pass it to `runQa()` or `AutonomousDriver` from the library.
 
+## Trust boundary
+
+Everything the model observes during a drive — page text, the ARIA tree, console and network lines — comes from the product under test, and a page can say anything, including instructions. Proofkeeper treats the model's tool calls as untrusted and enforces a policy before dispatching them:
+
+- **The shell is off by default.** `run_command` and its assertions exist only when you pass `--allow-shell` (or set `allowShell` in the config) — a tool the model never sees is a tool an injected page can't ask for.
+- **Egress is allowlisted.** `navigate` and `request` may only reach the start URL's origin, the loaded extension's pages, and hosts you add with `--allow-host` (or `allowedHosts`). Metadata endpoints, internal services, and anything else are refused.
+- **Observations are redacted.** Query strings, bearer tokens, and key-shaped values are scrubbed from network lines, console output, command output, and response snippets before they reach your model provider. The page's own visible text is left intact, so assertions match the real page.
+
+The write-back side has its own boundary: a proposed `## Verified By` change is a pull request a human reviews, never a direct commit.
+
 ## Testing a browser extension
 
 Point Proofkeeper at an unpacked extension and it drives the extension's own pages (`chrome-extension://…/popup.html`, options) and its effect on ordinary pages:
