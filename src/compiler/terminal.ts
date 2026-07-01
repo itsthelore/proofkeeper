@@ -27,18 +27,34 @@ export interface OutputAssertion {
 }
 
 /**
+ * Wall-clock cap on one command. A hung command (a server that never exits, a
+ * prompt waiting for input) must not hang the whole drive; the timeout error
+ * surfaces to the model as a failed action. Mirrored in the emitted spec.
+ */
+export const COMMAND_TIMEOUT_MS = 120_000;
+
+/** Output cap per stream — beyond this the command errors instead of ENOBUFS. */
+export const COMMAND_MAX_BUFFER = 16 * 1024 * 1024;
+
+/**
  * Run a shell command and capture its result. Uses `shell: true` so a recorded
  * command string (pipes, args, redirects) runs as written. The command executes
  * in the caller's own environment — a developer's terminal — exactly as the
  * committed test will when re-run (the trust boundary stays human PR review,
  * ADR-065).
  *
- * @throws when the process could not be spawned (a runner error, not a verdict).
+ * @throws when the process could not be spawned, timed out, or overflowed the
+ *   output cap (a runner error, not a verdict).
  */
-export function runCommand(command: string, options: { cwd?: string } = {}): CommandResult {
+export function runCommand(
+  command: string,
+  options: { cwd?: string; timeoutMs?: number } = {},
+): CommandResult {
   const result = spawnSync(command, {
     shell: true,
     encoding: "utf8",
+    timeout: options.timeoutMs ?? COMMAND_TIMEOUT_MS,
+    maxBuffer: COMMAND_MAX_BUFFER,
     ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
   });
   if (result.error) throw result.error;

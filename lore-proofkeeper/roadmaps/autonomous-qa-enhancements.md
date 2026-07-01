@@ -86,6 +86,14 @@ finish, assertion-free sessions refused, exact locator matching on record and
 replay, and contract anomalies (schema versions, empty or retried reports)
 refused rather than guessed at. Serves the faithful-tests outcome at its core.
 
+### Drive resilience
+
+Bound every external await (model, shell, Playwright, rac, git) with a
+wall-clock cap, retry transient model failures once, isolate one capability's
+failure from its siblings, cap observation growth, and make token spend and
+per-turn conduct visible. Serves the fast-reliable-scoped-QA outcome under
+real-world failure.
+
 ## Success Measures
 
 - A pull request shows exactly one Proofkeeper QA comment regardless of how many

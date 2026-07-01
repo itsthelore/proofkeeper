@@ -93,6 +93,23 @@ describe("fromOpenAIResponse", () => {
     ).toEqual([{ name: "finish", arguments: {} }]);
   });
 
+  it("surfaces provider-reported usage on both tool-call and done turns", () => {
+    const withTools = fromOpenAIResponse({
+      choices: [{ message: { tool_calls: [{ function: { name: "finish", arguments: "{}" } }] } }],
+      usage: { prompt_tokens: 120, completion_tokens: 15 },
+    });
+    expect(withTools.usage).toEqual({ inputTokens: 120, outputTokens: 15 });
+
+    const doneTurn = fromOpenAIResponse({
+      choices: [{ message: { content: "done" } }],
+      usage: { prompt_tokens: 80, completion_tokens: 5 },
+    });
+    expect(doneTurn.usage).toEqual({ inputTokens: 80, outputTokens: 5 });
+
+    const noUsage = fromOpenAIResponse({ choices: [{ message: { content: "done" } }] });
+    expect(noUsage.usage).toBeUndefined();
+  });
+
   it("returns an empty done when the provider sends no content and no tool calls", () => {
     expect(fromOpenAIResponse({ choices: [{ message: {} }] }).done).toBe("");
     expect(fromOpenAIResponse({}).done).toBe("");

@@ -40,13 +40,26 @@ export async function observePage(page: Page): Promise<PageObservation> {
   return { url: page.url(), title, text: text.trim(), aria: aria.trim() };
 }
 
+/**
+ * Per-block character budget for an observation. A full observation is
+ * re-appended to the transcript every turn, so an unbounded content-heavy page
+ * grows the prompt quadratically over a drive; the head of the text and ARIA
+ * tree carries the signal locators need.
+ */
+export const OBSERVATION_BLOCK_BUDGET = 8_000;
+
+function clip(block: string, budget = OBSERVATION_BLOCK_BUDGET): string {
+  if (block.length <= budget) return block;
+  return `${block.slice(0, budget)}\n… [truncated ${block.length - budget} chars]`;
+}
+
 /** Render an observation as the text block fed to the model. */
 export function renderObservation(o: PageObservation): string {
   const blocks = [
     `URL: ${o.url}`,
     `Title: ${o.title}`,
-    `Visible text:\n${o.text}`,
-    `Accessibility tree:\n${o.aria}`,
+    `Visible text:\n${clip(o.text)}`,
+    `Accessibility tree:\n${clip(o.aria)}`,
   ];
   if (o.console && o.console.length > 0) blocks.push(`Console:\n${o.console.join("\n")}`);
   if (o.network && o.network.length > 0) blocks.push(`Network:\n${o.network.join("\n")}`);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Page } from "@playwright/test";
 
 import { Recorder } from "../src/compiler/recorder.js";
+import { runCommand } from "../src/compiler/terminal.js";
 
 /**
  * The terminal half of the recorder runs real commands via spawnSync and never
@@ -72,5 +73,11 @@ describe("Recorder — terminal actions", () => {
       /before any run_command/,
     );
     await expect(rec.expectExit(0)).rejects.toThrow(/before any run_command/);
+  });
+});
+
+describe("runCommand timeout", () => {
+  it("errors instead of hanging when a command outlives the cap", () => {
+    expect(() => runCommand("sleep 5", { timeoutMs: 150 })).toThrow(/ETIMEDOUT/);
   });
 });

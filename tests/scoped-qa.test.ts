@@ -396,3 +396,43 @@ describe("parseScopedArgs", () => {
     expect(parseScopedArgs([...base, "--pr", "7", "--repo", "itsthelore/x"])).toMatchObject({ pr: 7, repo: "itsthelore/x" });
   });
 });
+
+describe("runScopedQa — per-capability error isolation", () => {
+  it("a capability whose drive throws becomes its own error entry; siblings survive", async () => {
+    const throwingDrive: ScopedQaDeps["drive"] = (options: DriveOptions) => {
+      if (options.capabilityId === "REQ-B") {
+        return Promise.reject(new Error("model call failed twice: 502; retry: 502"));
+      }
+      const session: RecordedSession = {
+        ...(options.capabilityId !== undefined ? { capabilityId: options.capabilityId } : {}),
+        title: options.title,
+        startUrl: options.startUrl,
+        actions: [
+          { type: "goto", url: options.startUrl },
+          { type: "expectText", locator: { kind: "testId", testId: "status" }, text: "ok" },
+        ],
+      };
+      return Promise.resolve({ session, finished: true, stopReason: "finished", steps: 1 } satisfies DriveResult);
+    };
+    const config: ProofkeeperConfig = {
+      capabilities: [
+        { id: "REQ-B", paths: ["src/b/**"], url: "http://b/" },
+        { id: "REQ-C", paths: ["src/c/**"], url: "http://c/" },
+      ],
+    };
+    const deps: ScopedQaDeps = { drive: throwingDrive, makeCompiler: () => new FakeCompiler(), makeRunner: () => new FakeRunner("passed") };
+    const result = await runScopedQa(deps, {
+      graph: GRAPH,
+      config,
+      changedPaths: ["src/b/y.ts", "src/c/z.ts"],
+      targetName: "local",
+      n: 1,
+    });
+
+    const byId = Object.fromEntries(result.driven.map((d) => [d.capability.id, d]));
+    expect(byId["REQ-B"]?.error).toMatch(/model call failed twice/);
+    expect(byId["REQ-B"]?.result).toBeUndefined();
+    // The sibling completed and its result was not discarded.
+    expect(byId["REQ-C"]?.result?.verified).toBe(true);
+  });
+});

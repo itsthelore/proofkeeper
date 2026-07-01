@@ -172,7 +172,7 @@ export function emitSpec(session: RecordedSession): string {
   // helper exactly, so a recording that held re-runs green.
   const terminalHelper = terminal
     ? `\nfunction runCommand(command: string, options: { cwd?: string } = {}) {
-  const r = spawnSync(command, { shell: true, encoding: "utf8", ...options });
+  const r = spawnSync(command, { shell: true, encoding: "utf8", timeout: 120000, maxBuffer: 16777216, ...options });
   if (r.error) throw r.error;
   return { stdout: r.stdout ?? "", stderr: r.stderr ?? "", code: r.status ?? 0 };
 }\n`

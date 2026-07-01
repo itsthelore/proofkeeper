@@ -73,6 +73,23 @@ describe("fromAnthropicResponse", () => {
     expect(result.toolCalls).toBeUndefined();
   });
 
+  it("surfaces provider-reported usage on both tool-call and done turns", () => {
+    const withTools = fromAnthropicResponse({
+      content: [{ type: "tool_use", name: "finish", input: {} }],
+      usage: { input_tokens: 120, output_tokens: 15 },
+    });
+    expect(withTools.usage).toEqual({ inputTokens: 120, outputTokens: 15 });
+
+    const doneTurn = fromAnthropicResponse({
+      content: [{ type: "text", text: "done" }],
+      usage: { input_tokens: 80, output_tokens: 5 },
+    });
+    expect(doneTurn.usage).toEqual({ inputTokens: 80, outputTokens: 5 });
+
+    const noUsage = fromAnthropicResponse({ content: [{ type: "text", text: "done" }] });
+    expect(noUsage.usage).toBeUndefined();
+  });
+
   it("defaults missing tool input to an empty object", () => {
     const result = fromAnthropicResponse({ content: [{ type: "tool_use", name: "finish" }] });
     expect(result.toolCalls).toEqual([{ name: "finish", arguments: {} }]);

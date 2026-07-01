@@ -31,6 +31,11 @@ export interface ModelResponse {
   toolCalls?: ToolCall[];
   /** Terminal assistant message when the model decides the session is done. */
   done?: string;
+  /**
+   * Provider-reported token usage for this turn, when the adapter surfaces it.
+   * The drive accumulates it so a run's cost is visible, not invisible.
+   */
+  usage?: { inputTokens: number; outputTokens: number };
 }
 
 /** A caller-supplied model. Proofkeeper bundles none. */

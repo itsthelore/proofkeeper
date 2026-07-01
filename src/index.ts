@@ -80,8 +80,8 @@ export type { ScaffoldOptions } from "./scaffold/scaffold.js";
 export { runAgentLoop } from "./agent/loop.js";
 export type { AgentLoopDeps, AgentLoopOptions, AgentLoopResult } from "./agent/loop.js";
 export type { ModelClient, ModelRequest, ModelResponse, ToolCall } from "./agent/model.js";
-export { AutonomousDriver, runDrive } from "./agent/drive.js";
-export type { DriveOptions, DriveResult } from "./agent/drive.js";
+export { AutonomousDriver, runDrive, DEFAULT_MODEL_TIMEOUT_MS } from "./agent/drive.js";
+export type { DriveOptions, DriveResult, DriveStepEvent } from "./agent/drive.js";
 export {
   DRIVE_TOOLS,
   toolsForPolicy,

@@ -41,6 +41,8 @@ export async function loadGraphFromCorpus(corpusDir: string, racBin = "rac"): Pr
   try {
     ({ stdout } = await execFileAsync(racBin, ["export", corpusDir, "--graph"], {
       maxBuffer: 64 * 1024 * 1024,
+      // A hung or interactive rac must not hang the pipeline.
+      timeout: 120_000,
     }));
   } catch (err) {
     throw new GraphParseError(

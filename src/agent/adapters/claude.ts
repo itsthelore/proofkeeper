@@ -38,6 +38,7 @@ interface AnthropicContentBlock {
 interface AnthropicMessage {
   stop_reason?: string;
   content: AnthropicContentBlock[];
+  usage?: { input_tokens?: number; output_tokens?: number };
 }
 
 /** The slice of the Anthropic SDK client this adapter calls. */
@@ -100,8 +101,12 @@ export function fromAnthropicResponse(message: AnthropicMessage): ModelResponse 
       textParts.push(block.text);
     }
   }
-  if (toolCalls.length > 0) return { toolCalls };
-  return { done: textParts.join("\n") };
+  const usage =
+    message.usage !== undefined
+      ? { usage: { inputTokens: message.usage.input_tokens ?? 0, outputTokens: message.usage.output_tokens ?? 0 } }
+      : {};
+  if (toolCalls.length > 0) return { toolCalls, ...usage };
+  return { done: textParts.join("\n"), ...usage };
 }
 
 export class ClaudeModelClient implements ModelClient {

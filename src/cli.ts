@@ -90,6 +90,8 @@ qa options:
                         explicit operator decision).
   --allow-host <host>   Allow navigate/request to this hostname in addition to the
                         start URL's origin (repeatable). All other egress is refused.
+  --verbose             Log each drive turn (tool calls, errors, model latency) to
+                        stderr as it happens — the audit trail of what the agent did.
   --propose             Propose a Verified By write-back PR when the test is stable.
   --target-path <path>  Artifact to write back to (required with --propose).
   --repo <owner/name>   Target repository for the write-back (required with --propose).
@@ -280,6 +282,7 @@ export interface QaArgs {
   extensionPath?: string;
   allowShell: boolean;
   allowedHosts: string[];
+  verbose: boolean;
   propose: boolean;
   targetPath?: string;
   base?: string;
@@ -345,6 +348,9 @@ export function parseQaArgs(argv: string[]): QaArgs {
       case "--allow-host":
         (raw.allowedHosts ??= []).push(requireValue(argv[++i], "--allow-host"));
         break;
+      case "--verbose":
+        raw.verbose = true;
+        break;
       case "--propose":
         raw.propose = true;
         break;
@@ -392,6 +398,7 @@ export function parseQaArgs(argv: string[]): QaArgs {
     ...(raw.extensionPath !== undefined ? { extensionPath: raw.extensionPath } : {}),
     allowShell: raw.allowShell ?? false,
     allowedHosts: raw.allowedHosts ?? [],
+    verbose: raw.verbose ?? false,
     propose: raw.propose ?? false,
     ...(raw.targetPath !== undefined ? { targetPath: raw.targetPath } : {}),
     ...(raw.base !== undefined ? { base: raw.base } : {}),
@@ -424,8 +431,28 @@ function resolveModel(): ModelClient {
 }
 
 /** A browser-backed drive seam: launch Chromium, drive, always close. */
-function browserDrive(model: ModelClient): (options: DriveOptions) => Promise<DriveResult> {
-  return async (options) => {
+function browserDrive(
+  model: ModelClient,
+  seamOptions: { verbose?: boolean } = {},
+): (options: DriveOptions) => Promise<DriveResult> {
+  // The audit trail: with --verbose, every turn's tool calls and outcomes are
+  // logged to stderr as they happen — an autonomous agent should leave a
+  // record of what it did, not only a final summary.
+  const onStep =
+    seamOptions.verbose === true
+      ? (event: import("./agent/drive.js").DriveStepEvent): void => {
+          const summary = event.calls.length > 0 ? event.calls.join(", ") : "(no tool calls)";
+          const errors = event.outcomes.filter((o) => o.startsWith("ERROR"));
+          process.stderr.write(
+            `  step ${event.step} (model ${(event.modelMs / 1000).toFixed(1)}s): ${summary}` +
+              (errors.length > 0 ? `\n    ${errors.join("\n    ")}` : "") +
+              "\n",
+          );
+        }
+      : undefined;
+
+  return async (rawOptions) => {
+    const options: DriveOptions = { ...rawOptions, ...(onStep ? { onStep } : {}) };
     const { chromium } = await import("@playwright/test");
 
     // Extension verification needs a persistent context with the unpacked
@@ -504,7 +531,7 @@ async function runQaCommand(argv: string[]): Promise<number> {
       : {}),
   };
   const deps: QaDeps = {
-    drive: browserDrive(model),
+    drive: browserDrive(model, { verbose: args.verbose }),
     compiler: new CodegenCompiler({ outDir: args.outDir }),
     runner: new PlaywrightRunner(),
     learning: new FileLearningStore(),
@@ -527,12 +554,16 @@ function renderQaResult(result: Awaited<ReturnType<typeof runQa>>): string {
     `Capability: ${result.capability.id} — ${result.capability.title}`,
     `Drive: ${result.drive.steps} step(s), ${stop}`,
   ];
+  if (result.drive.tokens) {
+    lines.push(`Tokens: ${result.drive.tokens.input} in / ${result.drive.tokens.output} out`);
+  }
   if (result.loop) {
     const v = result.loop.verdict;
     lines.push(
       `Compiled: ${result.loop.candidate.specPath}`,
       `Fidelity: ${v.passed}/${v.attempts} re-runs green — ${v.stable ? "stable" : "unstable, quarantined"}`,
     );
+    for (const error of v.errors ?? []) lines.push(`  runner error — ${error}`);
   } else {
     lines.push(`Not compiled: ${result.unverifiedReason ?? "nothing to verify"}`);
   }
@@ -666,7 +697,10 @@ export function parseScopedArgs(argv: string[]): ScopedArgs {
 /** Files changed against a git ref, as `git diff --name-only <ref>`. */
 async function gitChangedFiles(baseRef: string): Promise<string[]> {
   try {
-    const { stdout } = await execFileAsync("git", ["diff", "--name-only", baseRef], { maxBuffer: 16 * 1024 * 1024 });
+    const { stdout } = await execFileAsync("git", ["diff", "--name-only", baseRef], {
+      maxBuffer: 16 * 1024 * 1024,
+      timeout: 60_000,
+    });
     return stdout.split("\n").map((s) => s.trim()).filter(Boolean);
   } catch (err) {
     throw new UsageError(`git diff --name-only ${baseRef} failed: ${(err as Error).message}`);

@@ -27,6 +27,12 @@ export interface FidelityVerdict {
   passed: number;
   /** Per-attempt pass/fail, in order. */
   runs: boolean[];
+  /**
+   * Runner errors that counted as failed attempts (infrastructure failures —
+   * a hung browser, a missing report). Present only when at least one attempt
+   * errored, so a reviewer can tell "the test failed" from "the run broke".
+   */
+  errors?: string[];
 }
 
 /**
@@ -44,14 +50,24 @@ export async function assessFidelity(
   }
 
   const runs: boolean[] = [];
+  const errors: string[] = [];
   for (let attempt = 0; attempt < options.n; attempt++) {
-    const results = await runner.run([test], {
-      targets: [options.target],
-      parallelism: options.parallelism,
-    });
-    // One test, one target ⇒ a single result. Treat a missing result as failure.
-    const passed = results.length > 0 && results.every((r) => r.status === "passed");
-    runs.push(passed);
+    try {
+      const results = await runner.run([test], {
+        targets: [options.target],
+        parallelism: options.parallelism,
+      });
+      // One test, one target ⇒ a single result. Treat a missing result as failure.
+      const passed = results.length > 0 && results.every((r) => r.status === "passed");
+      runs.push(passed);
+    } catch (err) {
+      // A runner error (hung browser, missing report, broken install) is a
+      // failed attempt with a recorded reason — quarantine, not an abort that
+      // would discard the other attempts (and, in scoped runs, sibling
+      // capabilities).
+      runs.push(false);
+      errors.push(`attempt ${attempt + 1}: ${(err as Error).message}`);
+    }
   }
 
   const passed = runs.filter(Boolean).length;
@@ -61,5 +77,6 @@ export async function assessFidelity(
     attempts: options.n,
     passed,
     runs,
+    ...(errors.length > 0 ? { errors } : {}),
   };
 }
