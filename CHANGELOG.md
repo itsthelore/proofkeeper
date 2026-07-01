@@ -48,6 +48,16 @@ match exactly, or the workflow fails the publish.
   summary), and `--verbose` streams a per-turn audit trail (tool calls,
   errors, model latency) to stderr.
 
+- **Hardened delivery.** The Dogfood gate installs the rac engine pinned to a
+  commit (reproducible CI, no default-branch supply-chain exposure); CI runs
+  at least privilege on Node 20/22/24 with a new lint gate (Biome). Config
+  typos now fail at parse time with the offender named (duplicate capability
+  ids, unknown environments/personas/defaultTarget) instead of silently
+  driving the wrong URL. Write-back re-runs are idempotent: an existing head
+  branch is re-pointed, an already-open PR is returned instead of a 422, and
+  the marked PR comment is found past one hundred comments. `## Verified By`
+  paths are always written POSIX-style.
+
 ## 2026.07.1 — the "any model" release
 
 The release that makes **bring-your-own-model** mean *any* model — and proves Proofkeeper on itself. Everything since the first cut:
