@@ -136,16 +136,17 @@ interface CoverageArgs {
   json: boolean;
 }
 
-function parseCoverageArgs(argv: string[]): CoverageArgs {
+/** Parse `coverage` arguments. Pure and exported so it is unit-testable. */
+export function parseCoverageArgs(argv: string[]): CoverageArgs {
   const args: CoverageArgs = { json: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     switch (arg) {
       case "--graph-file":
-        args.graphFile = argv[++i];
+        args.graphFile = requireValue(argv[++i], "--graph-file");
         break;
       case "--corpus":
-        args.corpus = argv[++i];
+        args.corpus = requireValue(argv[++i], "--corpus");
         break;
       case "--json":
         args.json = true;
@@ -159,9 +160,6 @@ function parseCoverageArgs(argv: string[]): CoverageArgs {
   }
   if (args.graphFile && args.corpus) {
     throw new UsageError("pass only one of --graph-file or --corpus");
-  }
-  if ((args.graphFile !== undefined && !args.graphFile) || (args.corpus !== undefined && !args.corpus)) {
-    throw new UsageError("missing value for --graph-file/--corpus");
   }
   return args;
 }
@@ -346,7 +344,8 @@ export function parseQaArgs(argv: string[]): QaArgs {
         raw.allowShell = true;
         break;
       case "--allow-host":
-        (raw.allowedHosts ??= []).push(requireValue(argv[++i], "--allow-host"));
+        raw.allowedHosts ??= [];
+        raw.allowedHosts.push(requireValue(argv[++i], "--allow-host"));
         break;
       case "--verbose":
         raw.verbose = true;

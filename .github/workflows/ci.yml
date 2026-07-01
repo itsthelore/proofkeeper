@@ -5,18 +5,29 @@ on:
     branches: ["**"]
   pull_request:
 
+# CI needs to read the repo, nothing more.
+permissions:
+  contents: read
+
 jobs:
   build:
-    name: typecheck · test · build
+    name: typecheck · lint · test · build (node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # engines says >=20 and the release workflow builds on 24 — test what
+        # users actually run, not only the floor.
+        node: ["20", "22", "24"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run build
 

@@ -89,7 +89,7 @@ describe("GitHubRestGateway", () => {
 
   it("lists PR comments (id + body) via the issues comments endpoint", async () => {
     const { impl } = fakeFetch({
-      "GET /repos/o/r/issues/12/comments?per_page=100": () => ({
+      "GET /repos/o/r/issues/12/comments?per_page=100&page=1": () => ({
         json: [
           { id: 1, body: "hi" },
           { id: 2, body: "<!-- proofkeeper:scoped-qa -->\nstatus" },
@@ -121,5 +121,44 @@ describe("GitHubRestGateway", () => {
     const { impl } = fakeFetch({ "GET *": () => ({ status: 403, json: { message: "forbidden" } }) });
     const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });
     await expect(gateway.getFileContent("x", "main")).rejects.toThrow(/403/);
+  });
+});
+
+describe("GitHubRestGateway — re-run idempotency", () => {
+  it("re-points an already-existing head branch instead of failing with 422", async () => {
+    const { impl, calls } = fakeFetch({
+      "GET /repos/o/r/git/ref/heads/main": () => ({ json: { object: { sha: "abc" } } }),
+      "POST /repos/o/r/git/refs": () => ({ status: 422, json: { message: "Reference already exists" } }),
+      "PATCH /repos/o/r/git/refs/heads/proofkeeper/verified-by/req-b": () => ({ json: {} }),
+    });
+    const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });
+    await gateway.createBranch("proofkeeper/verified-by/req-b", "main");
+    expect(calls.some((c) => c.method === "PATCH" && c.url.includes("/git/refs/heads/"))).toBe(true);
+  });
+
+  it("returns the existing open PR when one is already open for the head branch", async () => {
+    const { impl } = fakeFetch({
+      "POST /repos/o/r/pulls": () => ({ status: 422, json: { message: "A pull request already exists for o:h." } }),
+      "GET /repos/o/r/pulls?head=o%3Ah&state=open&per_page=1": () => ({
+        json: [{ html_url: "https://gh/pull/7", number: 7 }],
+      }),
+    });
+    const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });
+    const pr = await gateway.openPullRequest({ base: "main", head: "h", title: "t", body: "b" });
+    expect(pr).toEqual({ url: "https://gh/pull/7", number: 7 });
+  });
+
+  it("paginates comment listing past the first hundred", async () => {
+    const first = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, body: `c${i + 1}` }));
+    const { impl } = fakeFetch({
+      "GET /repos/o/r/issues/9/comments?per_page=100&page=1": () => ({ json: first }),
+      "GET /repos/o/r/issues/9/comments?per_page=100&page=2": () => ({
+        json: [{ id: 101, body: "<!-- proofkeeper:scoped-qa -->\nmarked" }],
+      }),
+    });
+    const gateway = new GitHubRestGateway({ owner: "o", repo: "r", token: "t", fetch: impl });
+    const comments = await gateway.listComments(9);
+    expect(comments).toHaveLength(101);
+    expect(comments.at(-1)?.body).toContain("proofkeeper:scoped-qa");
   });
 });

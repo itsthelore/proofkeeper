@@ -94,6 +94,13 @@ failure from its siblings, cap observation growth, and make token spend and
 per-turn conduct visible. Serves the fast-reliable-scoped-QA outcome under
 real-world failure.
 
+### Delivery hygiene
+
+Pin the dogfood engine install to a commit, run CI at least privilege across
+every supported Node major with a lint gate, fail config typos at parse time
+with the offender named, and make write-back re-runs idempotent at the GitHub
+layer. Serves the trust outcome for the pipeline itself.
+
 ## Success Measures
 
 - A pull request shows exactly one Proofkeeper QA comment regardless of how many

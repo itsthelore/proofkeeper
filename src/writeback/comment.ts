@@ -62,7 +62,9 @@ export function renderWriteBackComment(input: {
   }
   if (input.steps && input.steps.length > 0) {
     lines.push("", "Steps exercised:");
-    input.steps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
+    input.steps.forEach((s, i) => {
+      lines.push(`${i + 1}. ${s}`);
+    });
   }
   const trace = input.links.find((l) => l.trace)?.trace;
   if (trace) {

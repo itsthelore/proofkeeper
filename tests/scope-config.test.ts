@@ -128,7 +128,6 @@ const PERSONA_CFG = parseConfig(
     capabilities: [
       { id: "REQ-ADMIN", paths: ["x"], url: "http://x/", persona: "admin" },
       { id: "REQ-NONE", paths: ["y"], url: "http://y/" },
-      { id: "REQ-BAD", paths: ["z"], url: "http://z/", persona: "ghost" },
     ],
     personas: [
       { name: "admin", testFocus: ["settings", "billing"], cannotDo: [] },
@@ -159,8 +158,19 @@ describe("personaContext", () => {
     expect(personaContext(PERSONA_CFG, cap("REQ-NONE"))).toBeUndefined();
   });
 
-  it("throws when the named persona is not defined", () => {
-    expect(() => personaContext(PERSONA_CFG, cap("REQ-BAD"))).toThrow(/undefined persona 'ghost'/);
+  it("rejects an undefined persona reference at parse time", () => {
+    expect(() =>
+      parseConfig(
+        JSON.stringify({
+          capabilities: [{ id: "REQ-BAD", paths: ["z"], url: "http://z/", persona: "ghost" }],
+          personas: [{ name: "admin" }],
+        }),
+      ),
+    ).toThrow(/undefined persona 'ghost'/);
+    // The runtime guard still holds for programmatically built configs.
+    expect(() =>
+      personaContext({ capabilities: [] }, { id: "X", paths: ["x"], persona: "ghost" }),
+    ).toThrow(/undefined persona 'ghost'/);
   });
 
   it("rejects a malformed persona block at parse time", () => {
@@ -243,5 +253,51 @@ describe("trust boundary (allowShell / allowedHosts)", () => {
     expect(() =>
       parseConfig(JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], allowedHosts: [1] })),
     ).toThrow(/allowedHosts/);
+  });
+});
+
+describe("cross-reference validation at parse time", () => {
+  it("rejects duplicate capability ids", () => {
+    expect(() =>
+      parseConfig(
+        JSON.stringify({
+          capabilities: [
+            { id: "REQ-A", paths: ["a"] },
+            { id: "REQ-A", paths: ["b"] },
+          ],
+        }),
+      ),
+    ).toThrow(/duplicate capability id 'REQ-A'/);
+  });
+
+  it("rejects a defaultTarget that names no defined environment", () => {
+    expect(() =>
+      parseConfig(
+        JSON.stringify({ capabilities: [{ id: "A", paths: ["x"] }], defaultTarget: "staging" }),
+      ),
+    ).toThrow(/defaultTarget 'staging' is not a defined environment/);
+  });
+
+  it("rejects a capability environment that names no defined environment", () => {
+    expect(() =>
+      parseConfig(
+        JSON.stringify({
+          capabilities: [{ id: "A", paths: ["x"], environment: "prod" }],
+          environments: { dev: { url: "http://dev/" } },
+        }),
+      ),
+    ).toThrow(/capability 'A' references undefined environment 'prod'/);
+  });
+
+  it("accepts a fully consistent config", () => {
+    const cfg = parseConfig(
+      JSON.stringify({
+        capabilities: [{ id: "A", paths: ["x"], environment: "dev", persona: "admin" }],
+        environments: { dev: { url: "http://dev/" } },
+        defaultTarget: "dev",
+        personas: [{ name: "admin" }],
+      }),
+    );
+    expect(cfg.capabilities).toHaveLength(1);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseQaArgs } from "../src/cli.js";
+import { parseQaArgs, parseCoverageArgs } from "../src/cli.js";
 import { runQa, selectCapability, defaultGoal, type QaDeps } from "../src/qa/run-qa.js";
 import { InMemoryLearningStore } from "../src/learning/store.js";
 import type { Graph } from "../src/coverage/graph.js";
@@ -377,5 +377,12 @@ describe("parseQaArgs", () => {
 
   it("rejects unknown options", () => {
     expect(() => parseQaArgs(["--graph-file", "g.json", "--url", "http://x/", "--bogus"])).toThrow(/unknown option/);
+  });
+});
+
+describe("parseCoverageArgs value guard", () => {
+  it("rejects a missing value for --graph-file/--corpus like every other parser", () => {
+    expect(() => parseCoverageArgs(["--graph-file"])).toThrow(/missing value for --graph-file/);
+    expect(() => parseCoverageArgs(["--corpus", ""])).toThrow(/missing value for --corpus/);
   });
 });
