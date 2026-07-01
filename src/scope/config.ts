@@ -71,6 +71,13 @@ export interface ProofkeeperConfig {
   personas?: PersonaConfig[];
   /** How failure knowledge is surfaced. Defaults to `suggest_in_report`. */
   failureLearning?: FailureLearningStrategy;
+  /**
+   * Allow the drive's terminal tools. OFF by default: enabling an unsandboxed
+   * shell is an explicit operator decision (the drive's trust boundary).
+   */
+  allowShell?: boolean;
+  /** Extra hostnames drives may navigate/request beyond each target's origin. */
+  allowedHosts?: string[];
 }
 
 /** A capability's resolved run target. */
@@ -185,6 +192,15 @@ export function parseConfig(json: string): ProofkeeperConfig {
   if (typeof raw["defaultTarget"] === "string") config.defaultTarget = raw["defaultTarget"];
   if (raw["auth"] !== undefined) config.auth = parseAuth(raw["auth"]);
   if (raw["personas"] !== undefined) config.personas = parsePersonas(raw["personas"]);
+  if (raw["allowShell"] !== undefined) {
+    if (typeof raw["allowShell"] !== "boolean") {
+      throw new ConfigParseError("`allowShell` must be a boolean");
+    }
+    config.allowShell = raw["allowShell"];
+  }
+  if (raw["allowedHosts"] !== undefined) {
+    config.allowedHosts = stringArray(raw["allowedHosts"], "`allowedHosts`");
+  }
   config.failureLearning =
     raw["failureLearning"] !== undefined ? parseFailureLearning(raw["failureLearning"]) : "suggest_in_report";
   return config;

@@ -91,6 +91,10 @@ export interface QaOptions {
   goalContext?: string;
   /** Unpacked extension dir to load for the drive (browser-extension verification). */
   extensionPath?: string;
+  /** Allow the terminal tools during the drive. OFF by default (trust boundary). */
+  allowShell?: boolean;
+  /** Extra hostnames the drive may navigate/request beyond the start URL's origin. */
+  allowedHosts?: string[];
   /** When set (and a proposer is wired), propose a Verified By write-back. */
   propose?: { targetPath: string; baseBranch?: string };
 }
@@ -127,6 +131,8 @@ export async function runQa(deps: QaDeps, options: QaOptions): Promise<QaResult>
     ...(prior.length > 0 ? { priorFailures: prior.map((f) => f.reason) } : {}),
     ...(options.plan ? { plan: true } : {}),
     ...(options.extensionPath !== undefined ? { extensionPath: options.extensionPath } : {}),
+    ...(options.allowShell !== undefined ? { allowShell: options.allowShell } : {}),
+    ...(options.allowedHosts !== undefined ? { allowedHosts: options.allowedHosts } : {}),
   };
   const drive = await deps.drive(driveOptions);
 

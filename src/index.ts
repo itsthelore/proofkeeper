@@ -84,6 +84,7 @@ export { AutonomousDriver, runDrive } from "./agent/drive.js";
 export type { DriveOptions, DriveResult } from "./agent/drive.js";
 export {
   DRIVE_TOOLS,
+  toolsForPolicy,
   LOCATOR_GUIDANCE,
   TERMINAL_GUIDANCE,
   HTTP_GUIDANCE,
@@ -101,6 +102,11 @@ export { observePage, renderObservation, createPageMonitor } from "./agent/obser
 export type { PageObservation, PageMonitor } from "./agent/observe.js";
 export { loadExtension, extensionIdFromUrl } from "./agent/extension.js";
 export type { LoadedExtension } from "./agent/extension.js";
+
+// The drive's trust boundary — egress policy and observation redaction.
+export { buildPolicy, urlRefusal, callRefusal, SHELL_TOOL_NAMES } from "./agent/policy.js";
+export type { EgressPolicy } from "./agent/policy.js";
+export { redactUrl, redactText } from "./agent/redact.js";
 
 // Reference BYO-model adapter (optional — Anthropic Claude API).
 export {

@@ -15,6 +15,8 @@
 
 import type { ConsoleMessage, Page, Response } from "@playwright/test";
 
+import { redactText, redactUrl } from "./redact.js";
+
 export interface PageObservation {
   url: string;
   title: string;
@@ -74,8 +76,11 @@ export function createPageMonitor(page: Page, options: { limit?: number } = {}):
     buf.push(line);
     if (buf.length > limit) buf.shift();
   };
-  const onConsole = (msg: ConsoleMessage): void => push(consoleBuf, `[${msg.type()}] ${msg.text()}`);
-  const onResponse = (res: Response): void => push(networkBuf, `${res.status()} ${res.request().method()} ${res.url()}`);
+  // Console and network lines are side channels shipped to the model provider;
+  // scrub token-shaped values and query strings before they enter the window.
+  const onConsole = (msg: ConsoleMessage): void => push(consoleBuf, redactText(`[${msg.type()}] ${msg.text()}`));
+  const onResponse = (res: Response): void =>
+    push(networkBuf, `${res.status()} ${res.request().method()} ${redactUrl(res.url())}`);
   page.on("console", onConsole);
   page.on("response", onResponse);
   return {
