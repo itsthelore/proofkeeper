@@ -37,6 +37,17 @@ match exactly, or the workflow fails the publish.
   quarantine, and a target project's configured retries count each test's
   final attempt as its outcome.
 
+- **The pipeline always terminates, fails locally, and shows its cost.** Every
+  external await is now time-boxed (model calls — with one backed-off retry on
+  a transient failure — shell commands, Playwright invocations, the rac graph
+  export, git); a runner exception counts as a failed fidelity attempt with
+  the reason on the verdict instead of aborting the gate; one capability's
+  failure in a scoped run no longer discards its siblings' results;
+  observations are capped per turn so the transcript can't grow without
+  bound. The bundled adapters surface provider token usage (shown in the QA
+  summary), and `--verbose` streams a per-turn audit trail (tool calls,
+  errors, model latency) to stderr.
+
 ## 2026.07.1 — the "any model" release
 
 The release that makes **bring-your-own-model** mean *any* model — and proves Proofkeeper on itself. Everything since the first cut:
