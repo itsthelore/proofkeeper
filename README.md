@@ -83,7 +83,7 @@ Requires Node ≥ 20. No model ships with Proofkeeper — you bring the key.
 - **Runs** the kept tests and emits a replayable trace.
 - **Proposes** the evidence back to Lore as a `## Verified By` link — by a pull request a human reviews, never a direct write.
 
-It stays on the read side of Lore: it consumes `rac export --graph`, never the engine's internals, and bundles no model.
+The model runs only during the drive; the compiled test, the fidelity gate, and every run afterward are plain Playwright — no model or key required. And it stays on the read side of Lore: it consumes `rac export --graph`, never the engine's internals.
 
 ## Coverage
 
