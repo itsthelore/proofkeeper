@@ -5,7 +5,7 @@ Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-light.png">
-  <img alt="Proofkeeper — the verification arm of Lore. A BYOK agent that drives your app and proves every capability with a real test." src="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-light.png">
+  <img alt="Proofkeeper — a bring-your-own-model agent that drives your app and leaves a re-runnable test as proof for each capability." src="https://raw.githubusercontent.com/itsthelore/proofkeeper/main/docs/assets/proofkeeper-header-light.png">
 </picture>
 -->
 
@@ -13,7 +13,7 @@ Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
 <a href="#quickstart">Quickstart</a> ·
 <a href="#how-it-compares">How it compares</a> ·
 <a href="#how-it-works">How it works</a> ·
-<a href="#write-back">Write-back</a> ·
+<a href="#bring-your-own-model">Bring your own model</a> ·
 <a href="#origin">Origin</a> ·
 <a href="./CHANGELOG.md">Changelog</a>
 </p>
@@ -27,233 +27,155 @@ Banner: add docs/assets/proofkeeper-header-{dark,light}.png, then uncomment.
 <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache 2.0"></a>
 </p>
 
-> **rac-core captures what your product should do. Proofkeeper proves it does — a BYOK agent that drives your app and verifies each capability with a real test.**
+> **rac-core captures what your product should do. Proofkeeper shows it does — a bring-your-own-model agent that drives your app and leaves a re-runnable test as proof for each capability.**
 
-[Lore (rac-core)](https://github.com/itsthelore/rac-core) keeps your product's capabilities as typed, read-only knowledge — requirements as code. Proofkeeper is the **verification arm** of that corpus: a bring-your-own-model agent that reads the capabilities Lore already records (over the published `rac export --graph` contract), drives your product to exercise each one, compiles the working session into a durable end-to-end test, and proposes linking that test back to the capability it proves. It produces **verification evidence and nothing else** — not code review, not codegen. It is a **contract consumer** of Lore, never an extension of its engine: Lore owns the knowledge; Proofkeeper produces and runs the evidence.
+[Lore (rac-core)](https://github.com/itsthelore/rac-core) records what your product should do — requirements as code. Proofkeeper reads those capabilities over the published `rac export --graph` contract, drives your product to exercise each one, and compiles the run into a Playwright test it proposes back to the corpus by pull request. It produces verification evidence and nothing else — no code review, no codegen — and never touches the Lore engine's internals.
 
 ## How it compares
 
-Proofkeeper isn't a record-and-watch tool or an automated reviewer — it turns an agent's exploratory run into a **re-runnable test a human reviews**. The differentiator is the durable artifact: a committed Playwright test plus its replayable trace, gated on fidelity, rather than a watch-once recording or a one-off review pass.
+Proofkeeper turns an agent's exploratory run into a re-runnable test a human reviews: a committed Playwright test plus its trace, kept only after it clears a fidelity gate — not a recording to rewatch or a one-off review pass.
 
-| | Proofkeeper | Record-and-watch (e.g. Devin) | Automated review (e.g. Factory) |
+| | Proofkeeper | Record-and-replay | AI PR reviewer |
 |---|---|---|---|
-| Output of a verification | committed test **+ replayable trace** | watch-once annotated video | a review pass on the PR |
-| Re-runnable | yes — `npx playwright test` | no | n/a |
-| Flakiness handling | the **fidelity gate** (N green re-runs) | none | n/a |
-| Knowledge write-back | `## Verified By` via PR (ADR-084) | proposes a Skill via PR | AGENTS.md conventions |
-| Model | **bring your own** — any OpenAI-compatible provider, or Claude | bundled | bundled |
+| Output | committed test + trace | annotated recording | comments on a diff |
+| Re-runnable | yes (`npx playwright test`) | no | n/a |
+| Flake handling | fidelity gate (N green re-runs) | none | n/a |
+| Model | bring your own | bundled | bundled |
 
 ## Quickstart
 
-1. **Install** dependencies (Node ≥ 20):
+1. **Install** the CLI and a browser:
 
    ```bash
-   npm install && npm run build
+   npm i -g @itsthelore/proofkeeper
+   npx playwright install chromium
    ```
 
-2. **See what's unverified** in a Lore corpus (shells out to `rac export --graph`, or pass a graph file):
+2. **See what's unverified** in a Lore corpus:
 
    ```bash
    proofkeeper coverage --corpus path/to/rac/
    ```
 
-3. **Scaffold** a config from the same graph (one capability per requirement):
+3. **Verify** a capability end to end:
 
    ```bash
-   proofkeeper init --corpus path/to/rac/ --url http://localhost:3000
-   ```
-
-4. **Verify** a capability end-to-end — drive, compile, fidelity-gate, and (optionally) propose the write-back:
-
-   ```bash
-   # Any OpenAI-compatible provider:
    OPENAI_API_KEY=… proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
-   # …or the built-in Claude adapter:
-   ANTHROPIC_API_KEY=… proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
    ```
 
-Set `OPENAI_API_KEY` to drive on any OpenAI-compatible provider — override `OPENAI_BASE_URL` / `OPENAI_MODEL` for OpenRouter, Groq, Together, Ollama, vLLM, and the like — or `ANTHROPIC_API_KEY` for the built-in Claude adapter. Or bring any provider at all by calling `runQa()` from the library with your own `ModelClient`.
+Use `OPENAI_API_KEY` for any OpenAI-compatible provider, or `ANTHROPIC_API_KEY` for the built-in Claude adapter — see [Bring your own model](#bring-your-own-model).
 
 ## Install
 
 | Command | Gets you |
 |---|---|
-| `npm install` | the library and the `proofkeeper` CLI |
+| `npm i -g @itsthelore/proofkeeper` | the `proofkeeper` CLI and the library |
 | `npx playwright install chromium` | the browser the drive and runner need |
-| `npm i @anthropic-ai/sdk` | the optional reference Claude adapter (BYO-model otherwise) |
+| `npm i @anthropic-ai/sdk` | the optional Claude adapter (any other model needs nothing extra) |
 
-Requires Node ≥ 20. Published as `@itsthelore/proofkeeper`; the CLI binary is `proofkeeper`. The model SDK is an **optional** peer dependency — installing Proofkeeper never pulls in a model.
+Requires Node ≥ 20. No model ships with Proofkeeper — you bring the key.
 
 ## How it works
 
-<!-- Given a capability Lore records, Proofkeeper drives → compiles → fidelity-gates → runs → proposes. -->
+- **Drives** your product through a browser, a terminal, and HTTP — an agent loop on your model that clicks, types, and calls endpoints. It records only the actions that succeed.
+- **Compiles** the run into a Playwright `.spec.ts` with a deterministic emitter, so record and replay agree byte-for-byte.
+- **Fidelity-gates** each test by re-running it N times and keeping only the ones that stay green.
+- **Runs** the kept tests and emits a replayable trace.
+- **Proposes** the evidence back to Lore as a `## Verified By` link — by a pull request a human reviews, never a direct write.
 
-- **Drives** your product the way a developer would — an agent loop with a **browser, a terminal, and HTTP** (ADR-083, ADR-085), using *your* model. It records only what succeeds.
-- **Compiles** that working session into a durable Playwright `.spec.ts` with a deterministic emitter — record and replay agree.
-- **Gates on fidelity** by re-running each emitted test N times and keeping only the green, stable ones. This faithful session→test conversion is the moat.
-- **Runs** the compiled suite fast, emitting a replayable trace per run.
-- **Reports** which Lore capabilities are unverified, and proposes `## Verified By` links back to the corpus through a **human-reviewed pull request** (ADR-065) — never a direct write.
+The model runs only during the drive; the compiled test, the fidelity gate, and every run afterward are plain Playwright — no model or key required. And it stays on the read side of Lore: it consumes `rac export --graph`, never the engine's internals.
 
-## The boundary
+## Coverage
 
-Proofkeeper is a **contract consumer** of Lore, and the boundary is load-bearing:
-
-- **Reads the published contract only.** It consumes `rac export --graph` to learn which capabilities lack a verifying test. It never imports the Lore engine's internals.
-- **Bring-your-own-model.** No model or inference is bundled; the agent runtime lives here, never in the Lore engine.
-- **Write-back is a proposal, never a mutation.** It opens a pull request a human reviews (ADR-065) — it never writes a corpus directly.
-- **Verification only.** Proofkeeper "produces verification evidence and nothing else"; code review and codegen are explicit non-goals, owned by sibling products.
-
-## The coverage signal
-
-A requirement node in `rac export --graph` is a product **capability**; the engine emits a typed `verified_by` edge from a capability to each test that verifies it (an external-target reference, ADR-084). A capability is **unverified** when it has no such edge — a pure, deterministic signal, no browser and no model required.
+A requirement in the graph is a capability; it is verified when a `verified_by` edge links it to a test. `proofkeeper coverage` reports the gaps deterministically — no browser, no model:
 
 ```bash
-proofkeeper coverage --graph-file graph.json          # from a graph export
-proofkeeper coverage --corpus path/to/rac/ --json     # shell out to rac; machine-readable
+proofkeeper coverage --graph-file graph.json       # from a graph export
+proofkeeper coverage --corpus path/to/rac/ --json  # shell out to rac; machine-readable
 ```
 
-Exit codes are a stable contract: `0` everything verified, `1` one or more unverified (gates cleanly in CI), `2` usage error.
-
-Proofkeeper targets `rac export --graph` **schema_version 1** (ADR-007). A graph that declares a different version is refused with a clear error rather than parsed best-effort; a graph that omits the field is tolerated.
+Exit codes are a contract: `0` all verified, `1` something unverified (gates CI), `2` usage error. Proofkeeper targets graph `schema_version 1`; a different version is refused with a clear error.
 
 ## Verify a capability
 
-`proofkeeper qa` (alias `verify`) runs the whole loop behind one command: pick an unverified capability → drive → compile → fidelity → run → optionally propose the write-back. With `--config`, it scopes to a pull request — driving every unverified capability the changed files touch, concurrently and context-isolated, and posting the evidence as a single comment that updates in place.
-
 ```bash
-# Verify a specific capability and, when stable, open the write-back PR:
-ANTHROPIC_API_KEY=… GITHUB_TOKEN=… proofkeeper qa \
+OPENAI_API_KEY=… GITHUB_TOKEN=… proofkeeper qa \
   --corpus path/to/rac/ --url http://localhost:3000/ \
   --capability REQ-CHECKOUT --n 5 \
   --propose --repo itsthelore/your-corpus --target-path rac/requirements/checkout.md
 ```
 
-Pass `--plan` to have the model write a human-readable test plan before driving. The drive has a **browser, a terminal, and HTTP**: `run_command` / `expect_output` / `expect_exit` for CLI capabilities, and `request` / `expect_status` / `expect_json` for API capabilities — a session may interleave all three.
+`proofkeeper qa` (alias `verify`) runs the whole loop for one capability: pick → drive → compile → fidelity → run → optionally propose the write-back. With `--config` it scopes to a pull request, driving every capability the changed files touch — concurrently, context-isolated — and posting one comment that updates in place. `--plan` has the model write a test plan first.
+
+## Bring your own model
+
+No model is bundled. Two adapters cover most providers; the `ModelClient` interface covers the rest.
+
+- **Any OpenAI-compatible provider** — any endpoint that speaks the chat-completions API with tool calls: OpenAI, OpenRouter, Together, Groq, DeepSeek, Mistral, and local Ollama / vLLM. Set `OPENAI_API_KEY`, plus `OPENAI_BASE_URL` / `OPENAI_MODEL` for non-OpenAI targets. No extra dependency; it uses the platform `fetch`.
+
+  ```bash
+  OPENAI_API_KEY=… OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_MODEL=… \
+    proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
+  ```
+
+- **Claude** — set `ANTHROPIC_API_KEY`; the adapter lazily imports `@anthropic-ai/sdk`.
+- **Anything else** — implement `ModelClient` (a single `complete()` method) and pass it to `runQa()` or `AutonomousDriver` from the library.
 
 ## Testing a browser extension
 
-Point Proofkeeper at an **unpacked extension** and it loads it for the drive, so the model can exercise the extension's own pages (`chrome-extension://<id>/popup.html`, options) and its effect on ordinary pages (content scripts):
+Point Proofkeeper at an unpacked extension and it drives the extension's own pages (`chrome-extension://…/popup.html`, options) and its effect on ordinary pages:
 
 ```bash
 proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/ --extension ./my-extension
 ```
 
-In a config, set it per environment:
+Or per environment in a config: `"environments": { "dev": { "url": "…", "extensionPath": "./my-extension" } }`.
 
-```json
-{
-  "environments": {
-    "dev": { "url": "http://localhost:3000/", "extensionPath": "./my-extension" }
-  }
-}
-```
-
-How it works: extensions load only in a **persistent context** (a plain launch never loads one), and an MV3 extension's ID is regenerated on every load. Proofkeeper launches with the extension via Chromium's **new headless** (`channel: "chromium"` — run `npx playwright install chromium`, not the headless shell), discovers the ID from the extension's service worker, and tells the model where its pages live. The **compiled test re-loads the extension and re-resolves the ID at run time**, so the committed spec and the fidelity gate verify the real extension — never a stale, recorded ID. Today this targets MV3 Chromium extensions; packed `.crx` and other browsers are out of scope.
+Extensions load only in a persistent context, and an MV3 extension's ID changes on every load — so Proofkeeper loads it via Chromium's new headless, reads the ID from the extension's service worker, and emits a test that re-loads the extension and re-resolves the ID at run time. The committed test verifies the real extension, not a stale ID. MV3 Chromium, unpacked; packed `.crx` and other browsers are out of scope.
 
 ## Write-back
 
-Once a test is stable, Proofkeeper proposes linking it to the capability it verifies by opening a **human-reviewed pull request** against the target's Lore corpus — it never commits the base branch (ADR-065). The `## Verified By` section records bare reference paths (the test and its replayable trace), so the engine's `verified_by` edge targets stay clean. Repository operations go through an injected `RepoGateway`, so there is no hard GitHub dependency.
-
-The PR carries readable evidence — a numbered step summary of the driven flow and a `npx playwright show-trace` hint — so a reviewer reads what was exercised, then re-runs the committed test to confirm. The merged artifact validates against the real engine, and the new `verified_by` edge flips the capability to verified in `proofkeeper coverage`.
-
-## Bring your own model
-
-Proofkeeper bundles no model. Two built-in adapters cover most providers out of the box, and the `ModelClient` interface is there for anything else.
-
-**Any OpenAI-compatible provider** — `OpenAICompatibleModelClient` speaks the OpenAI `/chat/completions` format, which is shared by OpenAI, OpenRouter, Together, Groq, Fireworks, DeepSeek, Mistral, vLLM, and Ollama (`/v1`). It uses the platform `fetch`, so it needs **no extra dependency**. From the CLI, set `OPENAI_API_KEY` and (for non-OpenAI targets) `OPENAI_BASE_URL` / `OPENAI_MODEL`:
-
-```bash
-# OpenAI
-OPENAI_API_KEY=sk-… proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
-
-# OpenRouter, Groq, a local Ollama / vLLM, … — just repoint the base URL and model:
-OPENAI_API_KEY=… OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_MODEL=… \
-  proofkeeper qa --corpus path/to/rac/ --url http://localhost:3000/
-```
-
-Or construct it directly from the library:
-
-```ts
-import { OpenAICompatibleModelClient } from "@itsthelore/proofkeeper";
-
-const model = new OpenAICompatibleModelClient({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1", // any OpenAI-compatible endpoint
-  model: "meta-llama/llama-3.1-70b-instruct",
-});
-```
-
-**Claude** — the optional reference `ClaudeModelClient` (lazily imports `@anthropic-ai/sdk`) is selected from the CLI when `ANTHROPIC_API_KEY` is set.
-
-**Anything else** — implement `ModelClient` yourself and pass it to the driver:
-
-```ts
-import { AutonomousDriver, CodegenCompiler, PlaywrightRunner, assessFidelity } from "@itsthelore/proofkeeper";
-import { chromium } from "@playwright/test";
-
-const model = {
-  async complete(request) {
-    /* call your LLM with request.transcript and request.tools */
-    return { toolCalls: [/* { name, arguments } */] };
-  },
-};
-
-const page = await (await chromium.launch()).newPage();
-const { session } = await new AutonomousDriver(page, model, {
-  capabilityId: "REQ-VERIFY",
-  title: "verify flips status to verified",
-  startUrl: "http://localhost:3000/",
-  goal: "Click Verify and confirm the status changes to 'verified'.",
-}).drive();
-
-const candidate = await new CodegenCompiler({ outDir: "tests/generated" }).compile(session);
-const verdict = await assessFidelity(new PlaywrightRunner(), candidate, {
-  n: 5,
-  target: { name: "dev", baseURL: "http://localhost:3000/" },
-});
-```
+When a test is stable, Proofkeeper opens a pull request against the target's Lore corpus proposing a `## Verified By` link — the test path and its trace. It never commits the base branch, and GitHub access goes through an injected `RepoGateway`, so there's no hard dependency. The PR carries a numbered step summary and a `playwright show-trace` hint; once merged, the `verified_by` edge flips the capability to verified in `proofkeeper coverage`.
 
 ## Failure-learning
 
-When a drive doesn't finish or its compiled test fails the fidelity gate, the run is recorded against the capability through a pluggable `LearningStore`. The next drive of that capability is handed the prior reasons, so the model steers away from the same dead ends. The config's `failureLearning` strategy controls how the catalog is *surfaced* — the default `suggest_in_report` adds a "Known failure modes" section to the scoped-QA PR comment; repo-writing strategies stay behind the propose-only boundary (ADR-065).
+When a drive doesn't finish or a test fails the fidelity gate, the reason is recorded against the capability through a pluggable `LearningStore`, and the next drive is handed those reasons so it steers clear of the same dead ends. The `failureLearning` config controls how they surface — the default adds a "Known failure modes" section to the pull-request comment.
 
 ## Origin
 
-Proofkeeper is a sibling of **[Lore / RAC](https://github.com/itsthelore/rac-core)**, split out because **verification is a runtime concern, not a knowledge one** — the same reasoning that separated [Wayfinder](https://github.com/itsthelore/wayfinder-router) (prompt-complexity routing) from the engine. Lore records *what* a product should do and serves it read-only; Proofkeeper drives the product to prove it does, and proposes the evidence back through a human-reviewed PR. The two compose over the published `rac export --graph` contract (ADR-063, ADR-083): no engine change is required, and the `verified_by` edge already exists in the engine. Proofkeeper produces and runs the evidence; Lore records it.
+Proofkeeper is a sibling of [Lore / RAC](https://github.com/itsthelore/rac-core), split out because verification is a runtime concern, not a knowledge one — the same split that moved [Wayfinder](https://github.com/itsthelore/wayfinder-router) (prompt-complexity routing) out of the engine. Lore records what a product should do; Proofkeeper drives it to prove it does. They compose over the published `rac export --graph` contract, so neither has to change for the other.
 
-> **Naming.** The product is **Proofkeeper**; the display brand is **Lore Proofkeeper** where disambiguation helps. It is unrelated to Epic Games' "Lore" version-control system — different audience, different tool.
+> **Naming.** The product is **Proofkeeper** (display brand **Lore Proofkeeper** where it helps). Unrelated to Epic Games' "Lore" version-control system.
 
 ## Repository layout
 
 ```text
-lore-proofkeeper/
-  src/              the library: coverage read-model, agent drive, session→test
-                    compiler, fidelity gate, runner, and the write-back proposer
-  src/cli.ts        the `proofkeeper` CLI (coverage, init, qa / verify)
-  lore-proofkeeper/ the dogfood corpus — the requirements, designs, and roadmap
-                    that govern Proofkeeper itself (verified by its own tests)
+proofkeeper/
+  src/              coverage read-model, agent drive, session→test compiler,
+                    fidelity gate, runner, and the write-back proposer
+  src/cli.ts        the proofkeeper CLI (coverage, init, qa / verify)
+  lore-proofkeeper/ the dogfood corpus that governs Proofkeeper itself
   tests/            vitest unit tests plus browser-gated e2e (PROOFKEEPER_E2E)
   examples/         the demo corpus, product page, and generated specs
-  docs/             the build-shape and competitive notes
 ```
 
 ## Test
 
 ```bash
 npm run typecheck   # strict TypeScript
-npm test            # vitest unit tests (fast, hermetic — no browser)
+npm test            # vitest unit tests (fast, no browser)
 npm run build       # emit dist/
 
-# Browser-driven end-to-end checks (real Chromium), opt-in:
+# Browser-driven e2e (real Chromium), opt-in:
 npx playwright install chromium
 PROOFKEEPER_E2E=1 npx vitest run tests/runner.integration.test.ts
 ```
 
-The default `npm test` is fully hermetic. The browser-driven integration tests are gated behind `PROOFKEEPER_E2E` so they run only when you opt in (and in the CI `e2e` job).
+`npm test` is hermetic; the e2e tests run only under `PROOFKEEPER_E2E` (and in the CI `e2e` job).
 
 ## Project status
 
-Proofkeeper is an early **v0.0.1** prototype, evolving quickly: the full drive → compile → fidelity → run → write-back pipeline works end-to-end against a real corpus graph, and Proofkeeper verifies its own capabilities (`proofkeeper coverage --corpus lore-proofkeeper/` reports them green). Contributions and experiments welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+Published on npm and dated with CalVer (`YYYY.MM.N`). The full drive → compile → fidelity → run → write-back loop works against a real corpus, and Proofkeeper verifies its own capabilities in CI (the Dogfood badge above). Early and moving quickly — contributions and experiments welcome, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
