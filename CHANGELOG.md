@@ -12,6 +12,20 @@ padding to a valid npm version (`2026.6.4`) at publish, because npm's strict
 SemVer forbids leading zeros. The release tag and `package.json` version must
 match exactly, or the workflow fails the publish.
 
+## 2026.07.1 — the "any model" release
+
+The release that makes **bring-your-own-model** mean *any* model — and proves Proofkeeper on itself. Everything since the first cut:
+
+- **Drive on any model, from the CLI.** A built-in **OpenAI-compatible adapter** speaks the `/chat/completions` format shared by OpenAI, OpenRouter, Together, Groq, Ollama, vLLM, and most local runtimes. Set `OPENAI_API_KEY` (and, for non-OpenAI targets, `OPENAI_BASE_URL` / `OPENAI_MODEL`) and Proofkeeper drives on it — **no new dependency** (it uses the platform `fetch`). The optional Claude adapter still works via `ANTHROPIC_API_KEY`; bring anything else by implementing `ModelClient`.
+
+- **Verify browser extensions.** Point Proofkeeper at an unpacked extension with `--extension <dir>` (or a per-environment `extensionPath`). It loads the extension in a persistent context, lets the model drive the extension's own pages (`chrome-extension://…/popup.html`, options) and its effect on web pages, and **compiles a test that re-loads the extension and re-discovers its runtime ID** — so the committed spec and the fidelity gate verify the real extension, never a stale ID. MV3 Chromium, unpacked.
+
+- **Proofkeeper proves itself.** A new **Dogfood** CI gate runs `proofkeeper coverage` over Proofkeeper's own Lore corpus and fails on any unverified capability, so the corpus can never silently drift un-green — with a README **Dogfood** badge tied to the live result.
+
+- **An explicit, checked contract guarantee.** Proofkeeper now checks the `rac export --graph` **`schema_version`** (it supports `1`) and refuses an unsupported graph with a clear, actionable error instead of parsing it best-effort. A graph that omits the field is tolerated. Per ADR-007 the engine bumps `schema_version` only on a breaking change, so this turns "should be compatible" into a guarantee.
+
+- **Tokenless releases.** Publishes to npm via **Trusted Publishing (OIDC)** — no long-lived token, provenance automatic.
+
 ## 2026.06.0 — the "first proof" release
 
 The first cut of **Proofkeeper** — the open-source autonomous-QA agent for [Lore](https://github.com/itsthelore/rac-core), and the OSS answer to Factory's DROID, **bounded to verification**. Hand it real developer tools — a **browser, a terminal, and HTTP** — and **your own model**, and it drives your product to prove each capability works, then leaves **durable, re-runnable evidence** in a pull request. It does in the open what DROID's autonomous-QA half does behind closed doors. Lore records *what* your product should do (requirements as code); Proofkeeper proves it does, and proposes the evidence back for human review (ADR-083).
